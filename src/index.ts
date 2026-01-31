@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import healthRoutes from "./routes/health.js";
 import scrapeRoutes from "./routes/scrape.js";
+import mapRoutes from "./routes/map.js";
 import { serviceAuth } from "./middleware/auth.js";
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(serviceAuth);
 // Routes
 app.use(healthRoutes);
 app.use(scrapeRoutes);
+app.use(mapRoutes);
 
 // 404 handler
 app.use((req, res) => {

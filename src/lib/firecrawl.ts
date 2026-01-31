@@ -91,3 +91,55 @@ export function normalizeUrl(url: string): string {
     return url.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
   }
 }
+
+export interface MapOptions {
+  search?: string;
+  ignoreSitemap?: boolean;
+  sitemapOnly?: boolean;
+  includeSubdomains?: boolean;
+  limit?: number;
+}
+
+export interface MapResponse {
+  success: boolean;
+  urls?: string[];
+  error?: string;
+}
+
+/**
+ * Map a website to discover all URLs using Firecrawl
+ */
+export async function mapUrl(
+  url: string,
+  options: MapOptions = {}
+): Promise<MapResponse> {
+  const firecrawl = getFirecrawl();
+
+  try {
+    const result = await firecrawl.mapUrl(url, {
+      search: options.search,
+      ignoreSitemap: options.ignoreSitemap,
+      sitemapOnly: options.sitemapOnly,
+      includeSubdomains: options.includeSubdomains ?? false,
+      limit: options.limit || 100,
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: (result as any).error || "Map failed",
+      };
+    }
+
+    return {
+      success: true,
+      urls: result.links || [],
+    };
+  } catch (error: any) {
+    console.error("Firecrawl map error:", error);
+    return {
+      success: false,
+      error: error.message || "Firecrawl map request failed",
+    };
+  }
+}
