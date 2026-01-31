@@ -25,7 +25,10 @@ jobs:
         run: npm test
         env:
           SCRAPING_SERVICE_API_KEY: test-api-key
+          SCRAPING_SERVICE_DATABASE_URL: postgresql://test:test@localhost:5432/test
           FIRECRAWL_API_KEY: test-firecrawl-key
 
       - name: Build
         run: npm run build
+        env:
+          SCRAPING_SERVICE_DATABASE_URL: postgresql://test:test@localhost:5432/test
