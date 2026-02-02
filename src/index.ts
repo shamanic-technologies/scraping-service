@@ -1,10 +1,12 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import healthRoutes from "./routes/health.js";
 import scrapeRoutes from "./routes/scrape.js";
 import mapRoutes from "./routes/map.js";
 import { serviceAuth } from "./middleware/auth.js";
+import { db } from "./db/index.js";
 
 const app = express();
 const PORT = process.env.PORT || 3010;
@@ -37,9 +39,19 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: "Internal server error" });
 });
 
-// Listen on :: for Railway private networking (IPv4 & IPv6 support)
-app.listen(Number(PORT), "::", () => {
-  console.log(`Scraping service running on port ${PORT}`);
-});
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== "test") {
+  migrate(db, { migrationsFolder: "./drizzle" })
+    .then(() => {
+      console.log("Migrations complete");
+      app.listen(Number(PORT), "::", () => {
+        console.log(`Service running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Migration failed:", err);
+      process.exit(1);
+    });
+}
 
 export default app;
