@@ -23,6 +23,7 @@ COPY package*.json ./
 RUN npm install --production
 
 COPY --from=0 /app/dist ./dist
+COPY drizzle ./drizzle
 
 EXPOSE 3010
 
