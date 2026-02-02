@@ -100,7 +100,7 @@ docker build -t scraping-service .
 docker run -p 3010:3010 --env-file .env scraping-service
 ```
 
-Multi-stage build: Node 20 Alpine, production dependencies only in final image.
+Multi-stage build: Node 20 Alpine, production dependencies and Drizzle migration files in final image. Migrations run automatically on startup.
 
 ## CI
 
