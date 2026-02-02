@@ -1,0 +1,47 @@
+name: README Freshness Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  readme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if code changed without README update
+        run: |
+          # Get list of changed files in this PR
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+
+          # Define code file patterns that should trigger a README review
+          CODE_PATTERNS="src/ Dockerfile package.json .env.example .github/workflows/ drizzle.config.ts tsconfig.json"
+
+          CODE_CHANGED=false
+          for pattern in $CODE_PATTERNS; do
+            if echo "$CHANGED" | grep -q "^$pattern"; then
+              CODE_CHANGED=true
+              break
+            fi
+          done
+
+          README_CHANGED=false
+          if echo "$CHANGED" | grep -q "^README.md"; then
+            README_CHANGED=true
+          fi
+
+          if [ "$CODE_CHANGED" = true ] && [ "$README_CHANGED" = false ]; then
+            echo "::warning::Code files changed without a README.md update. Please verify the README is still accurate."
+            echo ""
+            echo "Changed code files:"
+            for pattern in $CODE_PATTERNS; do
+              echo "$CHANGED" | grep "^$pattern" || true
+            done
+            echo ""
+            echo "If the README doesn't need updating, this is just a warning — the check still passes."
+          else
+            echo "README check passed."
+          fi
