@@ -20,6 +20,19 @@ When updating the README:
 - Update the relevant section only, don't rewrite the whole file
 - If you add a new endpoint, add it to the API Endpoints table AND add a request/response example if the endpoint accepts a body
 
+## Regression Tests (MANDATORY)
+
+**Every time you fix a bug or implement a feature from an issue, you MUST create tests.**
+
+- Add a test file in `tests/` that reproduces the issue scenario and verifies the fix
+- Test the failing case (what was broken) and the passing case (the fix)
+- Name test files descriptively: `tests/<feature-or-bug>.test.ts`
+- Tests must pass in CI (`npm test`) — the CI runs on every PR via `.github/workflows/test.yml`
+- If no test file exists yet for the affected module, create one
+- If a test file already exists, add the regression test to it
+
+This prevents the same bug from happening again. No PR should be opened without accompanying tests.
+
 ## Project Conventions
 
 - TypeScript strict mode
