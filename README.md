@@ -69,7 +69,9 @@ npm run dev
 | `npm run dev` | Start dev server with hot reload |
 | `npm run build` | Compile TypeScript |
 | `npm start` | Run compiled output |
-| `npm test` | Run tests |
+| `npm test` | Run all tests |
+| `npm run test:unit` | Run unit tests only |
+| `npm run test:integration` | Run integration tests (requires real DB) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run db:generate` | Generate Drizzle migrations |
 | `npm run db:push` | Push schema to database |
@@ -104,4 +106,17 @@ Multi-stage build: Node 20 Alpine, production dependencies and Drizzle migration
 
 ## CI
 
-GitHub Actions runs on push to `main` and PRs: installs deps, runs tests, builds TypeScript.
+GitHub Actions runs on push to `main` and PRs:
+
+- **test-unit** — installs deps, runs unit tests, builds TypeScript
+- **test-integration** — creates a Neon DB branch per PR (via `neondatabase/create-branch-action`), pushes schema with `drizzle-kit push`, runs integration tests against the isolated branch. On `main`, uses the `SCRAPING_SERVICE_DATABASE_URL_DEV` secret instead.
+
+A separate `neon-cleanup.yml` workflow deletes the Neon branch when the PR is closed.
+
+### Required GitHub Secrets & Variables
+
+| Name | Type | Description |
+|------|------|-------------|
+| `NEON_API_KEY` | Secret | Neon API key (Account Settings > API Keys) |
+| `NEON_PROJECT_ID` | Variable | Neon project ID |
+| `SCRAPING_SERVICE_DATABASE_URL_DEV` | Secret | Dev database URL for post-merge integration tests on `main` |
