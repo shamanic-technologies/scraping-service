@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate OpenAPI spec
+        run: npm run generate:openapi
+
       - name: Run unit tests
         run: npm run test:unit
         env:
