@@ -1,12 +1,18 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { readFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import healthRoutes from "./routes/health.js";
 import scrapeRoutes from "./routes/scrape.js";
 import mapRoutes from "./routes/map.js";
 import { serviceAuth } from "./middleware/auth.js";
 import { db } from "./db/index.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3010;
@@ -19,6 +25,16 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// OpenAPI spec endpoint
+const openapiPath = join(__dirname, "..", "openapi.json");
+app.get("/openapi.json", (req, res) => {
+  if (existsSync(openapiPath)) {
+    res.json(JSON.parse(readFileSync(openapiPath, "utf-8")));
+  } else {
+    res.status(404).json({ error: "OpenAPI spec not generated. Run: npm run generate:openapi" });
+  }
+});
 
 // Auth middleware (skips health routes)
 app.use(serviceAuth);
