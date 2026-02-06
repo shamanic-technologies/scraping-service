@@ -4,12 +4,13 @@ URL scraping microservice powered by [Firecrawl](https://firecrawl.dev). Extract
 
 ## API Endpoints
 
-All endpoints (except `/` and `/health`) require an `X-API-Key` header.
+All endpoints (except `/`, `/health`, and `/openapi.json`) require an `X-API-Key` header.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | Service info (name, version) |
 | `GET` | `/health` | Health check |
+| `GET` | `/openapi.json` | OpenAPI 3.0 spec (auto-generated) |
 | `POST` | `/scrape` | Scrape a URL and extract company info |
 | `GET` | `/scrape/:id` | Get a scrape result by ID |
 | `GET` | `/scrape/by-url?url=` | Get cached result by URL |
@@ -67,7 +68,8 @@ npm run dev
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start dev server with hot reload |
-| `npm run build` | Compile TypeScript |
+| `npm run build` | Compile TypeScript and generate OpenAPI spec |
+| `npm run generate:openapi` | Regenerate OpenAPI spec |
 | `npm start` | Run compiled output |
 | `npm test` | Run all tests |
 | `npm run test:unit` | Run unit tests only |
