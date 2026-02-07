@@ -122,6 +122,21 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         rawMetadata: scrapeResponse.metadata as any,
         expiresAt,
       })
+      .onConflictDoUpdate({
+        target: scrapeResults.normalizedUrl,
+        set: {
+          requestId: request.id,
+          url,
+          companyName: companyInfo.companyName,
+          description: companyInfo.description,
+          industry: companyInfo.industry,
+          website: url,
+          rawMarkdown: scrapeResponse.markdown,
+          rawMetadata: scrapeResponse.metadata as any,
+          expiresAt,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
 
     // Update cache
