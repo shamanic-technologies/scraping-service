@@ -23,6 +23,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=0 /app/dist ./dist
+COPY --from=0 /app/openapi.json ./openapi.json
 COPY drizzle ./drizzle
 
 EXPOSE 3010

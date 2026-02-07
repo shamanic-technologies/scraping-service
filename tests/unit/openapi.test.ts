@@ -40,3 +40,12 @@ describe("OpenAPI spec", () => {
     });
   });
 });
+
+describe("Dockerfile copies openapi.json", () => {
+  const dockerfilePath = join(__dirname, "..", "..", "Dockerfile");
+
+  it("should copy openapi.json from builder stage to production image", () => {
+    const dockerfile = readFileSync(dockerfilePath, "utf-8");
+    expect(dockerfile).toContain("COPY --from=0 /app/openapi.json ./openapi.json");
+  });
+});
