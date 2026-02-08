@@ -34,7 +34,7 @@ describe("/map endpoint", () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe("url is required");
+      expect(response.body.error).toBe("Invalid request");
     });
 
     it("should return discovered URLs on success", async () => {
@@ -59,20 +59,13 @@ describe("/map endpoint", () => {
       expect(response.body.count).toBe(3);
     });
 
-    it("should cap limit at 500", async () => {
-      vi.mocked(mapUrl).mockResolvedValueOnce({
-        success: true,
-        urls: [],
-      });
-
-      await request(app)
+    it("should reject limit above 500", async () => {
+      const response = await request(app)
         .post("/map")
         .send({ url: "https://example.com", limit: 1000 });
 
-      expect(mapUrl).toHaveBeenCalledWith(
-        "https://example.com",
-        expect.objectContaining({ limit: 500 })
-      );
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe("Invalid request");
     });
 
     it("should return 500 when map fails", async () => {

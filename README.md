@@ -10,7 +10,7 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require an `X-API-Key
 |--------|------|-------------|
 | `GET` | `/` | Service info (name, version) |
 | `GET` | `/health` | Health check |
-| `GET` | `/openapi.json` | OpenAPI 3.0 spec (auto-generated) |
+| `GET` | `/openapi.json` | OpenAPI 3.0 spec (generated from Zod schemas) |
 | `POST` | `/scrape` | Scrape a URL and extract company info |
 | `GET` | `/scrape/:id` | Get a scrape result by ID |
 | `GET` | `/scrape/by-url?url=` | Get cached result by URL |
@@ -69,7 +69,7 @@ npm run dev
 |--------|-------------|
 | `npm run dev` | Start dev server with hot reload |
 | `npm run build` | Compile TypeScript and generate OpenAPI spec |
-| `npm run generate:openapi` | Regenerate OpenAPI spec |
+| `npm run generate:openapi` | Regenerate OpenAPI spec from Zod schemas |
 | `npm start` | Run compiled output |
 | `npm test` | Run all tests |
 | `npm run test:unit` | Run unit tests only |

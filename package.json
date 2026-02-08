@@ -16,13 +16,14 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.3.4",
     "@mendable/firecrawl-js": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "drizzle-orm": "^0.36.0",
     "express": "^4.21.0",
     "postgres": "^3.4.0",
-    "swagger-autogen": "^2.23.7"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

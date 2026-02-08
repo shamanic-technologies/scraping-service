@@ -2,22 +2,14 @@ import { Router } from "express";
 import { eq, and, gt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { scrapeRequests, scrapeResults, scrapeCache } from "../db/schema.js";
-import { scrapeUrl, normalizeUrl, ScrapeOptions } from "../lib/firecrawl.js";
+import { scrapeUrl, normalizeUrl } from "../lib/firecrawl.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
+import { ScrapeRequestSchema } from "../schemas.js";
 
 const router = Router();
 
 // Cache duration: 7 days
 const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-
-interface ScrapeRequestBody {
-  url: string;
-  sourceService?: string;
-  sourceOrgId: string;
-  sourceRefId?: string;
-  options?: ScrapeOptions;
-  skipCache?: boolean;
-}
 
 /**
  * POST /scrape
@@ -25,22 +17,22 @@ interface ScrapeRequestBody {
  */
 router.post("/scrape", async (req: AuthenticatedRequest, res) => {
   try {
+    const parsed = ScrapeRequestSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid request", details: parsed.error.flatten() });
+    }
+
     const {
       url,
       sourceService,
       sourceOrgId,
       sourceRefId,
       options,
-      skipCache = false,
-    } = req.body as ScrapeRequestBody;
-
-    if (!url) {
-      return res.status(400).json({ error: "url is required" });
-    }
-
-    if (!sourceOrgId) {
-      return res.status(400).json({ error: "sourceOrgId is required" });
-    }
+      skipCache,
+    } = parsed.data;
 
     const normalized = normalizeUrl(url);
 

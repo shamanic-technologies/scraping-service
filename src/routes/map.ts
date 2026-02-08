@@ -1,17 +1,9 @@
 import { Router } from "express";
 import { mapUrl, MapOptions } from "../lib/firecrawl.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
+import { MapRequestSchema } from "../schemas.js";
 
 const router = Router();
-
-interface MapRequestBody {
-  url: string;
-  search?: string;
-  limit?: number;
-  ignoreSitemap?: boolean;
-  sitemapOnly?: boolean;
-  includeSubdomains?: boolean;
-}
 
 /**
  * POST /map
@@ -19,22 +11,20 @@ interface MapRequestBody {
  */
 router.post("/map", async (req: AuthenticatedRequest, res) => {
   try {
-    const {
-      url,
-      search,
-      limit = 100,
-      ignoreSitemap,
-      sitemapOnly,
-      includeSubdomains,
-    } = req.body as MapRequestBody;
+    const parsed = MapRequestSchema.safeParse(req.body);
 
-    if (!url) {
-      return res.status(400).json({ error: "url is required" });
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
+
+    const { url, search, limit, ignoreSitemap, sitemapOnly, includeSubdomains } =
+      parsed.data;
 
     const options: MapOptions = {
       search,
-      limit: Math.min(limit, 500), // Cap at 500
+      limit, // Already capped at 500 by schema max
       ignoreSitemap,
       sitemapOnly,
       includeSubdomains,
