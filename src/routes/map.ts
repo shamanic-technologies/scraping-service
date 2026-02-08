@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { mapUrl, MapOptions } from "../lib/firecrawl.js";
+import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { MapRequestSchema } from "../schemas.js";
 
@@ -19,8 +20,37 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    const { url, search, limit, ignoreSitemap, sitemapOnly, includeSubdomains } =
-      parsed.data;
+    const {
+      url,
+      search,
+      limit,
+      ignoreSitemap,
+      sitemapOnly,
+      includeSubdomains,
+      sourceOrgId,
+      brandId,
+      campaignId,
+      clerkUserId,
+      parentRunId,
+    } = parsed.data;
+
+    // Create run in RunsService if sourceOrgId is provided
+    let runId: string | undefined;
+    if (sourceOrgId) {
+      try {
+        const run = await createRun({
+          clerkOrgId: sourceOrgId,
+          taskName: "map",
+          brandId,
+          campaignId,
+          clerkUserId,
+          parentRunId,
+        });
+        runId = run.id;
+      } catch (err) {
+        console.error("Failed to create run:", err);
+      }
+    }
 
     const options: MapOptions = {
       search,
@@ -33,16 +63,32 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     const result = await mapUrl(url, options);
 
     if (!result.success) {
+      if (runId) {
+        updateRunStatus(runId, "failed").catch((err) =>
+          console.error("Failed to update run status:", err)
+        );
+      }
+
       return res.status(500).json({
         success: false,
         error: result.error || "Failed to map URL",
+        runId,
       });
+    }
+
+    // Report costs and complete run (fire-and-forget)
+    if (runId) {
+      Promise.all([
+        addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1 }]),
+        updateRunStatus(runId, "completed"),
+      ]).catch((err) => console.error("Failed to finalize run:", err));
     }
 
     res.json({
       success: true,
       urls: result.urls,
       count: result.urls?.length || 0,
+      runId,
     });
   } catch (error: any) {
     console.error("Map error:", error);

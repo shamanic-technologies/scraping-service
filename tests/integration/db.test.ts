@@ -27,6 +27,27 @@ describe("database schema", () => {
     expect(inserted.sourceService).toBe("test-service");
     expect(inserted.url).toBe("https://example.com");
     expect(inserted.status).toBe("pending");
+    expect(inserted.runId).toBeNull();
+
+    // Clean up
+    await db
+      .delete(schema.scrapeRequests)
+      .where(eq(schema.scrapeRequests.id, inserted.id));
+  });
+
+  it("should insert a scrape request with runId", async () => {
+    const [inserted] = await db
+      .insert(schema.scrapeRequests)
+      .values({
+        sourceService: "test-service",
+        sourceOrgId: "org_test123",
+        url: "https://example.com",
+        runId: "run_abc123",
+        status: "processing",
+      })
+      .returning();
+
+    expect(inserted.runId).toBe("run_abc123");
 
     // Clean up
     await db
@@ -66,65 +87,5 @@ describe("database schema", () => {
     await db
       .delete(schema.scrapeRequests)
       .where(eq(schema.scrapeRequests.id, request.id));
-  });
-
-  it("should insert and query users and orgs", async () => {
-    const [org] = await db
-      .insert(schema.orgs)
-      .values({ clerkOrgId: "org_integration_test" })
-      .returning();
-
-    const [user] = await db
-      .insert(schema.users)
-      .values({ clerkUserId: "user_integration_test" })
-      .returning();
-
-    expect(org.clerkOrgId).toBe("org_integration_test");
-    expect(user.clerkUserId).toBe("user_integration_test");
-
-    // Clean up
-    await db.delete(schema.users).where(eq(schema.users.id, user.id));
-    await db.delete(schema.orgs).where(eq(schema.orgs.id, org.id));
-  });
-
-  it("should insert a task run with costs", async () => {
-    // Setup: org, user, task
-    const [org] = await db
-      .insert(schema.orgs)
-      .values({ clerkOrgId: "org_cost_test" })
-      .returning();
-
-    const [task] = await db
-      .insert(schema.tasks)
-      .values({ name: "test-scrape-task" })
-      .returning();
-
-    const [run] = await db
-      .insert(schema.tasksRuns)
-      .values({
-        taskId: task.id,
-        orgId: org.id,
-        status: "completed",
-      })
-      .returning();
-
-    const [cost] = await db
-      .insert(schema.tasksRunsCosts)
-      .values({
-        taskRunId: run.id,
-        costName: "firecrawl-credits",
-        units: 5,
-        costPerUnitInUsdCents: "0.1000000000",
-        totalCostInUsdCents: "0.5000000000",
-      })
-      .returning();
-
-    expect(cost.costName).toBe("firecrawl-credits");
-    expect(cost.units).toBe(5);
-
-    // Clean up (cascade from run deletes costs)
-    await db.delete(schema.tasksRuns).where(eq(schema.tasksRuns.id, run.id));
-    await db.delete(schema.tasks).where(eq(schema.tasks.id, task.id));
-    await db.delete(schema.orgs).where(eq(schema.orgs.id, org.id));
   });
 });

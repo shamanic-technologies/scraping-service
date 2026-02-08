@@ -25,11 +25,15 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require an `X-API-Key
   "sourceService": "campaign",
   "sourceRefId": "ref_456",
   "skipCache": false,
-  "options": {}
+  "options": {},
+  "brandId": "brand_1",
+  "campaignId": "campaign_2",
+  "clerkUserId": "user_3",
+  "parentRunId": "uuid"
 }
 ```
 
-Returns `{ cached: boolean, requestId: string, result: {...} }`.
+Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`.
 
 ### POST /map
 
@@ -40,11 +44,14 @@ Returns `{ cached: boolean, requestId: string, result: {...} }`.
   "limit": 100,
   "ignoreSitemap": false,
   "sitemapOnly": false,
-  "includeSubdomains": false
+  "includeSubdomains": false,
+  "sourceOrgId": "org_123",
+  "brandId": "brand_1",
+  "campaignId": "campaign_2"
 }
 ```
 
-Returns `{ success: boolean, urls: string[], count: number }`.
+Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Run tracking requires `sourceOrgId`.
 
 ## Setup
 
@@ -61,6 +68,8 @@ npm run dev
 | `SCRAPING_SERVICE_DATABASE_URL` | PostgreSQL connection string |
 | `SCRAPING_SERVICE_API_KEY` | API key for service-to-service auth |
 | `FIRECRAWL_API_KEY` | Firecrawl API key |
+| `RUNS_SERVICE_URL` | RunsService base URL (default: `https://runs.mcpfactory.org`) |
+| `RUNS_SERVICE_API_KEY` | API key for RunsService |
 | `PORT` | Server port (default: 3010) |
 
 ## Scripts
@@ -82,14 +91,11 @@ npm run dev
 
 Uses PostgreSQL via Drizzle ORM. Tables:
 
-- **scrape_requests** - Tracks incoming scrape requests (status, source, timestamps)
+- **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, timestamps)
 - **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
 - **scrape_cache** - URL-based cache lookup with TTL
-- **users** - Maps Clerk user IDs to local DB
-- **orgs** - Maps Clerk org IDs to local DB
-- **tasks** - Task type registry
-- **tasks_runs** - Task execution records with status tracking
-- **tasks_runs_costs** - Per-run cost tracking (units, cost per unit)
+
+Run tracking and cost reporting are delegated to the external [RunsService](https://runs.mcpfactory.org).
 
 Migrations run automatically on startup (skipped in test environment).
 
