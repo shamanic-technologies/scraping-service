@@ -3,6 +3,7 @@ import { eq, and, gt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { scrapeRequests, scrapeResults, scrapeCache } from "../db/schema.js";
 import { scrapeUrl, normalizeUrl } from "../lib/firecrawl.js";
+import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema } from "../schemas.js";
 
@@ -32,6 +33,10 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       sourceRefId,
       options,
       skipCache,
+      brandId,
+      campaignId,
+      clerkUserId,
+      parentRunId,
     } = parsed.data;
 
     const normalized = normalizeUrl(url);
@@ -61,6 +66,22 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       }
     }
 
+    // Create run in RunsService
+    let runId: string | undefined;
+    try {
+      const run = await createRun({
+        clerkOrgId: sourceOrgId,
+        taskName: "scrape",
+        brandId,
+        campaignId,
+        clerkUserId,
+        parentRunId,
+      });
+      runId = run.id;
+    } catch (err) {
+      console.error("Failed to create run:", err);
+    }
+
     // Create scrape request record
     const [request] = await db
       .insert(scrapeRequests)
@@ -68,6 +89,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         sourceService: sourceService || req.sourceService || "unknown",
         sourceOrgId,
         sourceRefId,
+        runId,
         url,
         options: options as any,
         status: "processing",
@@ -88,9 +110,16 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         })
         .where(eq(scrapeRequests.id, request.id));
 
+      if (runId) {
+        updateRunStatus(runId, "failed").catch((err) =>
+          console.error("Failed to update run status:", err)
+        );
+      }
+
       return res.status(500).json({
         error: scrapeResponse.error || "Scrape failed",
         requestId: request.id,
+        runId,
       });
     }
 
@@ -163,9 +192,18 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       })
       .where(eq(scrapeRequests.id, request.id));
 
+    // Report costs and complete run (fire-and-forget)
+    if (runId) {
+      Promise.all([
+        addCosts(runId, [{ costName: "firecrawl-scrape-credit", quantity: 1 }]),
+        updateRunStatus(runId, "completed"),
+      ]).catch((err) => console.error("Failed to finalize run:", err));
+    }
+
     res.json({
       cached: false,
       requestId: request.id,
+      runId,
       result: formatResult(result),
     });
   } catch (error: any) {

@@ -45,6 +45,11 @@ export const ScrapeRequestSchema = z
     sourceRefId: z.string().optional(),
     skipCache: z.boolean().optional().default(false),
     options: ScrapeOptionsSchema.optional(),
+    // RunsService passthrough fields
+    brandId: z.string().optional(),
+    campaignId: z.string().optional(),
+    clerkUserId: z.string().optional(),
+    parentRunId: z.string().uuid().optional(),
   })
   .openapi("ScrapeRequest");
 
@@ -76,6 +81,7 @@ const ScrapeResponseSchema = z
   .object({
     cached: z.boolean(),
     requestId: z.string().optional(),
+    runId: z.string().optional(),
     result: ScrapeResultSchema,
   })
   .openapi("ScrapeResponse");
@@ -105,6 +111,12 @@ export const MapRequestSchema = z
     ignoreSitemap: z.boolean().optional(),
     sitemapOnly: z.boolean().optional(),
     includeSubdomains: z.boolean().optional(),
+    // RunsService fields (run creation requires sourceOrgId)
+    sourceOrgId: z.string().optional(),
+    brandId: z.string().optional(),
+    campaignId: z.string().optional(),
+    clerkUserId: z.string().optional(),
+    parentRunId: z.string().uuid().optional(),
   })
   .openapi("MapRequest");
 
@@ -115,6 +127,7 @@ const MapSuccessResponseSchema = z
     success: z.literal(true),
     urls: z.array(z.string()),
     count: z.number(),
+    runId: z.string().optional(),
   })
   .openapi("MapSuccessResponse");
 
