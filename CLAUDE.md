@@ -1,4 +1,30 @@
-# Scraping Service - Agent Instructions
+# Project: scraping-service
+
+URL scraping microservice powered by Firecrawl. Extracts company information from websites with built-in caching (7-day TTL).
+
+## Commands
+
+- `npm test` — run unit tests
+- `npm run test:integration` — run integration tests (requires real DB)
+- `npm run test:watch` — run tests in watch mode
+- `npm run build` — compile TypeScript + generate OpenAPI spec
+- `npm run dev` — local dev server with hot reload
+- `npm run generate:openapi` — regenerate openapi.json from Zod schemas
+- `npm start` — run compiled output
+- `npm run db:generate` — generate Drizzle migrations
+- `npm run db:push` — push schema to database
+
+## Architecture
+
+- `src/schemas.ts` — Zod schemas (source of truth for validation + OpenAPI)
+- `src/routes/` — Route handlers (`scrape.ts`, `map.ts`, `health.ts`)
+- `src/middleware/` — Middleware (`auth.ts`)
+- `src/lib/` — Shared utilities (`firecrawl.ts`, `runs-client.ts`)
+- `src/db/` — Drizzle ORM schema and database connection (`schema.ts`, `index.ts`)
+- `src/index.ts` — Express app entrypoint
+- `scripts/generate-openapi.ts` — OpenAPI spec generator
+- `tests/` — Test files (`*.test.ts`)
+- `openapi.json` — Auto-generated, do NOT edit manually
 
 ## README Maintenance (MANDATORY)
 
