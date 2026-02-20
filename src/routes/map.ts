@@ -32,6 +32,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       campaignId,
       clerkUserId,
       parentRunId,
+      workflowName,
     } = parsed.data;
 
     // Create run in RunsService if sourceOrgId is provided
@@ -45,6 +46,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
           campaignId,
           clerkUserId,
           parentRunId,
+          workflowName,
         });
         runId = run.id;
       } catch (err) {

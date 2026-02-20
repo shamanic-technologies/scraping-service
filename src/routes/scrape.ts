@@ -37,6 +37,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       campaignId,
       clerkUserId,
       parentRunId,
+      workflowName,
     } = parsed.data;
 
     const normalized = normalizeUrl(url);
@@ -76,6 +77,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         campaignId,
         clerkUserId,
         parentRunId,
+        workflowName,
       });
       runId = run.id;
     } catch (err) {

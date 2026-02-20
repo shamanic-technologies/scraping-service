@@ -35,6 +35,7 @@ export interface CreateRunParams {
   brandId?: string;
   campaignId?: string;
   parentRunId?: string;
+  workflowName?: string;
 }
 
 export interface Run {
@@ -44,6 +45,7 @@ export interface Run {
   appId: string;
   brandId: string | null;
   campaignId: string | null;
+  workflowName: string | null;
   serviceName: string;
   taskName: string;
   status: string;
@@ -75,6 +77,7 @@ export async function createRun(params: CreateRunParams): Promise<Run> {
       ...(params.clerkUserId && { clerkUserId: params.clerkUserId }),
       ...(params.brandId && { brandId: params.brandId }),
       ...(params.campaignId && { campaignId: params.campaignId }),
+      ...(params.workflowName && { workflowName: params.workflowName }),
       ...(params.parentRunId && { parentRunId: params.parentRunId }),
     }),
   });

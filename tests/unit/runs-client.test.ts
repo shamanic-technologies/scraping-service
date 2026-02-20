@@ -64,6 +64,7 @@ describe("runs-client", () => {
         campaignId: "campaign_2",
         clerkUserId: "user_3",
         parentRunId: "550e8400-e29b-41d4-a716-446655440000",
+        workflowName: "gtm-outbound",
       });
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
@@ -71,6 +72,7 @@ describe("runs-client", () => {
       expect(body.campaignId).toBe("campaign_2");
       expect(body.clerkUserId).toBe("user_3");
       expect(body.parentRunId).toBe("550e8400-e29b-41d4-a716-446655440000");
+      expect(body.workflowName).toBe("gtm-outbound");
     });
 
     it("should not include undefined optional fields", async () => {
@@ -89,6 +91,7 @@ describe("runs-client", () => {
       expect(body).not.toHaveProperty("campaignId");
       expect(body).not.toHaveProperty("clerkUserId");
       expect(body).not.toHaveProperty("parentRunId");
+      expect(body).not.toHaveProperty("workflowName");
     });
 
     it("should throw on non-ok response", async () => {

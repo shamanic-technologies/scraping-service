@@ -29,7 +29,8 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require an `X-API-Key
   "brandId": "brand_1",
   "campaignId": "campaign_2",
   "clerkUserId": "user_3",
-  "parentRunId": "uuid"
+  "parentRunId": "uuid",
+  "workflowName": "gtm-outbound"
 }
 ```
 
@@ -47,7 +48,8 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`.
   "includeSubdomains": false,
   "sourceOrgId": "org_123",
   "brandId": "brand_1",
-  "campaignId": "campaign_2"
+  "campaignId": "campaign_2",
+  "workflowName": "gtm-outbound"
 }
 ```
 
