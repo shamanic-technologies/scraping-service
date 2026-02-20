@@ -50,6 +50,7 @@ export const ScrapeRequestSchema = z
     campaignId: z.string().optional(),
     clerkUserId: z.string().optional(),
     parentRunId: z.string().uuid().optional(),
+    workflowName: z.string().optional(),
   })
   .openapi("ScrapeRequest");
 
@@ -117,6 +118,7 @@ export const MapRequestSchema = z
     campaignId: z.string().optional(),
     clerkUserId: z.string().optional(),
     parentRunId: z.string().uuid().optional(),
+    workflowName: z.string().optional(),
   })
   .openapi("MapRequest");
 
