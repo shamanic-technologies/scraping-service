@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Mock key-client before importing app
+vi.mock("../../src/lib/key-client.js", () => ({
+  decryptByokKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
+  KeyServiceError: class KeyServiceError extends Error {
+    constructor(message: string, public statusCode: number) {
+      super(message);
+      this.name = "KeyServiceError";
+    }
+  },
+}));
+
 // Mock the firecrawl module before importing app
 vi.mock("../../src/lib/firecrawl.js", () => ({
   mapUrl: vi.fn(),
@@ -11,6 +22,7 @@ import request from "supertest";
 import express from "express";
 import mapRoutes from "../../src/routes/map.js";
 import { mapUrl } from "../../src/lib/firecrawl.js";
+import { decryptByokKey, KeyServiceError } from "../../src/lib/key-client.js";
 
 describe("/map endpoint", () => {
   let app: express.Application;
@@ -51,7 +63,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com" });
+        .send({ url: "https://example.com", sourceOrgId: "org_test" });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -76,11 +88,24 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com" });
+        .send({ url: "https://example.com", sourceOrgId: "org_test" });
 
       expect(response.status).toBe(500);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe("Rate limited");
+    });
+
+    it("should return 400 when org has no Firecrawl key configured", async () => {
+      vi.mocked(decryptByokKey).mockRejectedValueOnce(
+        new KeyServiceError("Not found", 404)
+      );
+
+      const response = await request(app)
+        .post("/map")
+        .send({ url: "https://example.com", sourceOrgId: "org_no_key" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain("not configured");
     });
 
     it("should pass search option to mapUrl", async () => {
@@ -91,10 +116,11 @@ describe("/map endpoint", () => {
 
       await request(app)
         .post("/map")
-        .send({ url: "https://example.com", search: "pricing" });
+        .send({ url: "https://example.com", sourceOrgId: "org_test", search: "pricing" });
 
       expect(mapUrl).toHaveBeenCalledWith(
         "https://example.com",
+        "test-key",
         expect.objectContaining({ search: "pricing" })
       );
     });

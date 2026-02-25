@@ -112,8 +112,8 @@ export const MapRequestSchema = z
     ignoreSitemap: z.boolean().optional(),
     sitemapOnly: z.boolean().optional(),
     includeSubdomains: z.boolean().optional(),
-    // RunsService fields (run creation requires sourceOrgId)
-    sourceOrgId: z.string().optional(),
+    // Required: used for BYOK key resolution and run tracking
+    sourceOrgId: z.string().min(1),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
     clerkUserId: z.string().optional(),

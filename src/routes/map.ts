@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { mapUrl, MapOptions } from "../lib/firecrawl.js";
+import { decryptByokKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { MapRequestSchema } from "../schemas.js";
@@ -35,23 +36,41 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       workflowName,
     } = parsed.data;
 
-    // Create run in RunsService if sourceOrgId is provided
-    let runId: string | undefined;
-    if (sourceOrgId) {
-      try {
-        const run = await createRun({
-          clerkOrgId: sourceOrgId,
-          taskName: "map",
-          brandId,
-          campaignId,
-          clerkUserId,
-          parentRunId,
-          workflowName,
-        });
-        runId = run.id;
-      } catch (err) {
-        console.error("Failed to create run:", err);
+    // Decrypt org's Firecrawl key via key-service
+    let firecrawlApiKey: string;
+    try {
+      const decrypted = await decryptByokKey("firecrawl", sourceOrgId, {
+        method: "POST",
+        path: "/map",
+      });
+      firecrawlApiKey = decrypted.key;
+    } catch (err) {
+      if (err instanceof KeyServiceError) {
+        const status = err.statusCode === 404 ? 400 : 502;
+        const message =
+          err.statusCode === 404
+            ? "Firecrawl API key not configured for this organization"
+            : "Failed to retrieve Firecrawl API key";
+        return res.status(status).json({ error: message });
       }
+      throw err;
+    }
+
+    // Create run in RunsService
+    let runId: string | undefined;
+    try {
+      const run = await createRun({
+        clerkOrgId: sourceOrgId,
+        taskName: "map",
+        brandId,
+        campaignId,
+        clerkUserId,
+        parentRunId,
+        workflowName,
+      });
+      runId = run.id;
+    } catch (err) {
+      console.error("Failed to create run:", err);
     }
 
     const options: MapOptions = {
@@ -62,7 +81,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       includeSubdomains,
     };
 
-    const result = await mapUrl(url, options);
+    const result = await mapUrl(url, firecrawlApiKey, options);
 
     if (!result.success) {
       if (runId) {
