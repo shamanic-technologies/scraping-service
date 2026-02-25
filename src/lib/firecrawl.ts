@@ -1,18 +1,5 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
 
-let firecrawlClient: FirecrawlApp | null = null;
-
-export function getFirecrawl(): FirecrawlApp {
-  if (!firecrawlClient) {
-    const apiKey = process.env.FIRECRAWL_API_KEY;
-    if (!apiKey) {
-      throw new Error("FIRECRAWL_API_KEY is not set");
-    }
-    firecrawlClient = new FirecrawlApp({ apiKey });
-  }
-  return firecrawlClient;
-}
-
 export interface ScrapeOptions {
   formats?: ("markdown" | "html" | "rawHtml" | "links" | "screenshot")[];
   onlyMainContent?: boolean;
@@ -42,9 +29,10 @@ export interface ScrapeResponse {
  */
 export async function scrapeUrl(
   url: string,
+  apiKey: string,
   options: ScrapeOptions = {}
 ): Promise<ScrapeResponse> {
-  const firecrawl = getFirecrawl();
+  const firecrawl = new FirecrawlApp({ apiKey });
 
   try {
     const result = await firecrawl.scrapeUrl(url, {
@@ -111,9 +99,10 @@ export interface MapResponse {
  */
 export async function mapUrl(
   url: string,
+  apiKey: string,
   options: MapOptions = {}
 ): Promise<MapResponse> {
-  const firecrawl = getFirecrawl();
+  const firecrawl = new FirecrawlApp({ apiKey });
 
   try {
     const result = await firecrawl.mapUrl(url, {

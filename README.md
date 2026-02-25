@@ -1,6 +1,6 @@
 # Scraping Service
 
-URL scraping microservice powered by [Firecrawl](https://firecrawl.dev). Extracts company information from websites with built-in caching (7-day TTL).
+URL scraping microservice powered by [Firecrawl](https://firecrawl.dev). Extracts company information from websites with built-in caching (7-day TTL). Firecrawl API keys are resolved per-request via key-service BYOK — each org brings their own Firecrawl key.
 
 ## API Endpoints
 
@@ -53,7 +53,7 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`.
 }
 ```
 
-Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Run tracking requires `sourceOrgId`.
+Returns `{ success: boolean, urls: string[], count: number, runId: string }`. `sourceOrgId` is required for BYOK key resolution and run tracking.
 
 ## Setup
 
@@ -69,7 +69,8 @@ npm run dev
 |----------|-------------|
 | `SCRAPING_SERVICE_DATABASE_URL` | PostgreSQL connection string |
 | `SCRAPING_SERVICE_API_KEY` | API key for service-to-service auth |
-| `FIRECRAWL_API_KEY` | Firecrawl API key |
+| `KEY_SERVICE_URL` | Key-service base URL for BYOK key resolution |
+| `KEY_SERVICE_API_KEY` | API key for key-service |
 | `RUNS_SERVICE_URL` | RunsService base URL (default: `https://runs.mcpfactory.org`) |
 | `RUNS_SERVICE_API_KEY` | API key for RunsService |
 | `PORT` | Server port (default: 3010) |

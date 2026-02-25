@@ -3,6 +3,7 @@ import { eq, and, gt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { scrapeRequests, scrapeResults, scrapeCache } from "../db/schema.js";
 import { scrapeUrl, normalizeUrl } from "../lib/firecrawl.js";
+import { decryptByokKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema } from "../schemas.js";
@@ -67,6 +68,26 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       }
     }
 
+    // Decrypt org's Firecrawl key via key-service
+    let firecrawlApiKey: string;
+    try {
+      const decrypted = await decryptByokKey("firecrawl", sourceOrgId, {
+        method: "POST",
+        path: "/scrape",
+      });
+      firecrawlApiKey = decrypted.key;
+    } catch (err) {
+      if (err instanceof KeyServiceError) {
+        const status = err.statusCode === 404 ? 400 : 502;
+        const message =
+          err.statusCode === 404
+            ? "Firecrawl API key not configured for this organization"
+            : "Failed to retrieve Firecrawl API key";
+        return res.status(status).json({ error: message });
+      }
+      throw err;
+    }
+
     // Create run in RunsService
     let runId: string | undefined;
     try {
@@ -99,7 +120,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       .returning();
 
     // Scrape the URL
-    const scrapeResponse = await scrapeUrl(url, options || {});
+    const scrapeResponse = await scrapeUrl(url, firecrawlApiKey, options || {});
 
     if (!scrapeResponse.success) {
       // Update request as failed
