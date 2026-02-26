@@ -28,10 +28,10 @@ async function callRunsService<T>(
 }
 
 export interface CreateRunParams {
-  clerkOrgId: string;
+  orgId: string;
   appId?: string;
   taskName: string;
-  clerkUserId?: string;
+  userId?: string;
   brandId?: string;
   campaignId?: string;
   parentRunId?: string;
@@ -70,11 +70,11 @@ export async function createRun(params: CreateRunParams): Promise<Run> {
   return callRunsService<Run>("/v1/runs", {
     method: "POST",
     body: JSON.stringify({
-      clerkOrgId: params.clerkOrgId,
+      orgId: params.orgId,
       appId: params.appId || "mcpfactory",
       serviceName: "scraping-service",
       taskName: params.taskName,
-      ...(params.clerkUserId && { clerkUserId: params.clerkUserId }),
+      ...(params.userId && { userId: params.userId }),
       ...(params.brandId && { brandId: params.brandId }),
       ...(params.campaignId && { campaignId: params.campaignId }),
       ...(params.workflowName && { workflowName: params.workflowName }),

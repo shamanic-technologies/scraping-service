@@ -63,7 +63,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com", sourceOrgId: "org_test" });
+        .send({ url: "https://example.com", orgId: "org_test" });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -88,7 +88,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com", sourceOrgId: "org_test" });
+        .send({ url: "https://example.com", orgId: "org_test" });
 
       expect(response.status).toBe(500);
       expect(response.body.success).toBe(false);
@@ -102,7 +102,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com", sourceOrgId: "org_no_key" });
+        .send({ url: "https://example.com", orgId: "org_no_key" });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain("not configured");
@@ -116,7 +116,7 @@ describe("/map endpoint", () => {
 
       await request(app)
         .post("/map")
-        .send({ url: "https://example.com", sourceOrgId: "org_test", search: "pricing" });
+        .send({ url: "https://example.com", orgId: "org_test", search: "pricing" });
 
       expect(mapUrl).toHaveBeenCalledWith(
         "https://example.com",

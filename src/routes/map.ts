@@ -28,10 +28,10 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       ignoreSitemap,
       sitemapOnly,
       includeSubdomains,
-      sourceOrgId,
+      orgId,
       brandId,
       campaignId,
-      clerkUserId,
+      userId,
       parentRunId,
       workflowName,
     } = parsed.data;
@@ -39,7 +39,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     // Decrypt org's Firecrawl key via key-service
     let firecrawlApiKey: string;
     try {
-      const decrypted = await decryptByokKey("firecrawl", sourceOrgId, {
+      const decrypted = await decryptByokKey("firecrawl", orgId, {
         method: "POST",
         path: "/map",
       });
@@ -60,11 +60,11 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     let runId: string | undefined;
     try {
       const run = await createRun({
-        clerkOrgId: sourceOrgId,
+        orgId,
         taskName: "map",
         brandId,
         campaignId,
-        clerkUserId,
+        userId,
         parentRunId,
         workflowName,
       });

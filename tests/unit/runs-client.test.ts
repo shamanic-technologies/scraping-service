@@ -28,7 +28,7 @@ describe("runs-client", () => {
       });
 
       const result = await createRun({
-        clerkOrgId: "org_abc",
+        orgId: "org_abc",
         taskName: "scrape",
       });
 
@@ -45,7 +45,7 @@ describe("runs-client", () => {
       );
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-      expect(body.clerkOrgId).toBe("org_abc");
+      expect(body.orgId).toBe("org_abc");
       expect(body.appId).toBe("mcpfactory");
       expect(body.serviceName).toBe("scraping-service");
       expect(body.taskName).toBe("scrape");
@@ -58,11 +58,11 @@ describe("runs-client", () => {
       });
 
       await createRun({
-        clerkOrgId: "org_abc",
+        orgId: "org_abc",
         taskName: "scrape",
         brandId: "brand_1",
         campaignId: "campaign_2",
-        clerkUserId: "user_3",
+        userId: "user_3",
         parentRunId: "550e8400-e29b-41d4-a716-446655440000",
         workflowName: "gtm-outbound",
       });
@@ -70,7 +70,7 @@ describe("runs-client", () => {
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(body.brandId).toBe("brand_1");
       expect(body.campaignId).toBe("campaign_2");
-      expect(body.clerkUserId).toBe("user_3");
+      expect(body.userId).toBe("user_3");
       expect(body.parentRunId).toBe("550e8400-e29b-41d4-a716-446655440000");
       expect(body.workflowName).toBe("gtm-outbound");
     });
@@ -82,14 +82,14 @@ describe("runs-client", () => {
       });
 
       await createRun({
-        clerkOrgId: "org_abc",
+        orgId: "org_abc",
         taskName: "scrape",
       });
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(body).not.toHaveProperty("brandId");
       expect(body).not.toHaveProperty("campaignId");
-      expect(body).not.toHaveProperty("clerkUserId");
+      expect(body).not.toHaveProperty("userId");
       expect(body).not.toHaveProperty("parentRunId");
       expect(body).not.toHaveProperty("workflowName");
     });
@@ -98,11 +98,11 @@ describe("runs-client", () => {
       fetchSpy.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        text: () => Promise.resolve('{"error":"Missing clerkOrgId"}'),
+        text: () => Promise.resolve('{"error":"Missing orgId"}'),
       });
 
       await expect(
-        createRun({ clerkOrgId: "", taskName: "scrape" })
+        createRun({ orgId: "", taskName: "scrape" })
       ).rejects.toThrow("400");
     });
   });

@@ -33,10 +33,10 @@ export class KeyServiceError extends Error {
 
 export async function decryptByokKey(
   provider: string,
-  clerkOrgId: string,
+  orgId: string,
   caller: CallerContext
 ): Promise<DecryptedKey> {
-  const url = `${getKeyServiceUrl()}/internal/keys/${provider}/decrypt?clerkOrgId=${encodeURIComponent(clerkOrgId)}`;
+  const url = `${getKeyServiceUrl()}/internal/keys/${provider}/decrypt?orgId=${encodeURIComponent(orgId)}`;
 
   const response = await fetch(url, {
     method: "GET",

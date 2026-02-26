@@ -17,7 +17,7 @@ describe("database schema", () => {
       .insert(schema.scrapeRequests)
       .values({
         sourceService: "test-service",
-        sourceOrgId: "org_test123",
+        orgId: "org_test123",
         url: "https://example.com",
         status: "pending",
       })
@@ -40,7 +40,7 @@ describe("database schema", () => {
       .insert(schema.scrapeRequests)
       .values({
         sourceService: "test-service",
-        sourceOrgId: "org_test123",
+        orgId: "org_test123",
         url: "https://example.com",
         runId: "run_abc123",
         status: "processing",
@@ -61,7 +61,7 @@ describe("database schema", () => {
       .insert(schema.scrapeRequests)
       .values({
         sourceService: "test-service",
-        sourceOrgId: "org_test123",
+        orgId: "org_test123",
         url: "https://example.com",
         status: "completed",
       })

@@ -21,14 +21,14 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require an `X-API-Key
 ```json
 {
   "url": "https://example.com",
-  "sourceOrgId": "org_123",
+  "orgId": "org_123",
   "sourceService": "campaign",
   "sourceRefId": "ref_456",
   "skipCache": false,
   "options": {},
   "brandId": "brand_1",
   "campaignId": "campaign_2",
-  "clerkUserId": "user_3",
+  "userId": "user_3",
   "parentRunId": "uuid",
   "workflowName": "gtm-outbound"
 }
@@ -46,14 +46,14 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`.
   "ignoreSitemap": false,
   "sitemapOnly": false,
   "includeSubdomains": false,
-  "sourceOrgId": "org_123",
+  "orgId": "org_123",
   "brandId": "brand_1",
   "campaignId": "campaign_2",
   "workflowName": "gtm-outbound"
 }
 ```
 
-Returns `{ success: boolean, urls: string[], count: number, runId: string }`. `sourceOrgId` is required for BYOK key resolution and run tracking.
+Returns `{ success: boolean, urls: string[], count: number, runId: string }`. `orgId` is required for BYOK key resolution and run tracking.
 
 ## Setup
 

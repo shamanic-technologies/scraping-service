@@ -33,7 +33,7 @@ describe("key-client", () => {
 
       expect(result).toEqual({ provider: "firecrawl", key: "fc-key-123" });
       expect(fetchSpy).toHaveBeenCalledWith(
-        "https://key.test.org/internal/keys/firecrawl/decrypt?clerkOrgId=org_abc",
+        "https://key.test.org/internal/keys/firecrawl/decrypt?orgId=org_abc",
         expect.objectContaining({
           method: "GET",
           headers: expect.objectContaining({
@@ -116,7 +116,7 @@ describe("key-client", () => {
       ).rejects.toThrow(KeyServiceError);
     });
 
-    it("should URI-encode the clerkOrgId", async () => {
+    it("should URI-encode the orgId", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -129,7 +129,7 @@ describe("key-client", () => {
       });
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining("clerkOrgId=org_abc%2Bdef"),
+        expect.stringContaining("orgId=org_abc%2Bdef"),
         expect.anything()
       );
     });
