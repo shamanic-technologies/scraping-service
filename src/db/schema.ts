@@ -21,7 +21,7 @@ export const scrapeRequests = pgTable(
 
     // Source identification (which project/service sent this)
     sourceService: text("source_service").notNull(), // 'mcpfactory', 'pressbeat', etc.
-    sourceOrgId: text("source_org_id").notNull(), // Clerk org ID
+    orgId: text("org_id").notNull(),
     sourceRefId: text("source_ref_id"), // Campaign ID, pitch ID, etc.
 
     // Request details
@@ -40,7 +40,7 @@ export const scrapeRequests = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
-    index("idx_scrape_requests_source").on(table.sourceService, table.sourceOrgId),
+    index("idx_scrape_requests_source").on(table.sourceService, table.orgId),
     index("idx_scrape_requests_url").on(table.url),
     index("idx_scrape_requests_status").on(table.status),
   ]

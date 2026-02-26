@@ -92,7 +92,7 @@ describe("POST /scrape - duplicate URL handling", () => {
 
     const response = await request(app).post("/scrape").send({
       url: "https://mcpfactory.org",
-      sourceOrgId: "org_test",
+      orgId: "org_test",
     });
 
     expect(response.status).toBe(200);
@@ -122,7 +122,7 @@ describe("POST /scrape - duplicate URL handling", () => {
 
     await request(app).post("/scrape").send({
       url: "https://mcpfactory.org",
-      sourceOrgId: "org_test",
+      orgId: "org_test",
     });
 
     // Verify scrapeCache insert was called with onConflictDoUpdate

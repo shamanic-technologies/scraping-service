@@ -40,7 +40,7 @@ const ScrapeOptionsSchema = z
 export const ScrapeRequestSchema = z
   .object({
     url: z.string().url(),
-    sourceOrgId: z.string().min(1),
+    orgId: z.string().min(1),
     sourceService: z.string().optional(),
     sourceRefId: z.string().optional(),
     skipCache: z.boolean().optional().default(false),
@@ -48,7 +48,7 @@ export const ScrapeRequestSchema = z
     // RunsService passthrough fields
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    clerkUserId: z.string().optional(),
+    userId: z.string().optional(),
     parentRunId: z.string().uuid().optional(),
     workflowName: z.string().optional(),
   })
@@ -113,10 +113,10 @@ export const MapRequestSchema = z
     sitemapOnly: z.boolean().optional(),
     includeSubdomains: z.boolean().optional(),
     // Required: used for BYOK key resolution and run tracking
-    sourceOrgId: z.string().min(1),
+    orgId: z.string().min(1),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    clerkUserId: z.string().optional(),
+    userId: z.string().optional(),
     parentRunId: z.string().uuid().optional(),
     workflowName: z.string().optional(),
   })

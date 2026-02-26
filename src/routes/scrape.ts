@@ -30,13 +30,13 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     const {
       url,
       sourceService,
-      sourceOrgId,
+      orgId,
       sourceRefId,
       options,
       skipCache,
       brandId,
       campaignId,
-      clerkUserId,
+      userId,
       parentRunId,
       workflowName,
     } = parsed.data;
@@ -71,7 +71,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // Decrypt org's Firecrawl key via key-service
     let firecrawlApiKey: string;
     try {
-      const decrypted = await decryptByokKey("firecrawl", sourceOrgId, {
+      const decrypted = await decryptByokKey("firecrawl", orgId, {
         method: "POST",
         path: "/scrape",
       });
@@ -92,11 +92,11 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     let runId: string | undefined;
     try {
       const run = await createRun({
-        clerkOrgId: sourceOrgId,
+        orgId,
         taskName: "scrape",
         brandId,
         campaignId,
-        clerkUserId,
+        userId,
         parentRunId,
         workflowName,
       });
@@ -110,7 +110,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       .insert(scrapeRequests)
       .values({
         sourceService: sourceService || req.sourceService || "unknown",
-        sourceOrgId,
+        orgId,
         sourceRefId,
         runId,
         url,

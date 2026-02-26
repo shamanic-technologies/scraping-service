@@ -6,7 +6,7 @@ describe("workflowName passthrough", () => {
     it("should accept workflowName as optional string", () => {
       const result = ScrapeRequestSchema.safeParse({
         url: "https://example.com",
-        sourceOrgId: "org_abc",
+        orgId: "org_abc",
         workflowName: "gtm-outbound",
       });
       expect(result.success).toBe(true);
@@ -18,7 +18,7 @@ describe("workflowName passthrough", () => {
     it("should accept request without workflowName", () => {
       const result = ScrapeRequestSchema.safeParse({
         url: "https://example.com",
-        sourceOrgId: "org_abc",
+        orgId: "org_abc",
       });
       expect(result.success).toBe(true);
       if (result.success) {
@@ -31,7 +31,7 @@ describe("workflowName passthrough", () => {
     it("should accept workflowName as optional string", () => {
       const result = MapRequestSchema.safeParse({
         url: "https://example.com",
-        sourceOrgId: "org_abc",
+        orgId: "org_abc",
         workflowName: "gtm-outbound",
       });
       expect(result.success).toBe(true);
@@ -43,7 +43,7 @@ describe("workflowName passthrough", () => {
     it("should accept request without workflowName", () => {
       const result = MapRequestSchema.safeParse({
         url: "https://example.com",
-        sourceOrgId: "org_abc",
+        orgId: "org_abc",
       });
       expect(result.success).toBe(true);
       if (result.success) {

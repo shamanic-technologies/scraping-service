@@ -15,6 +15,13 @@
       "when": 1770556379429,
       "tag": "0001_closed_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772073752880,
+      "tag": "0002_broken_mattie_franklin",
+      "breakpoints": true
     }
   ]
 }
