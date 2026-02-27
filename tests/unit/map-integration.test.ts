@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock key-client before importing app
 vi.mock("../../src/lib/key-client.js", () => ({
-  decryptByokKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
+  resolveKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
   KeyServiceError: class KeyServiceError extends Error {
     constructor(message: string, public statusCode: number) {
       super(message);
@@ -22,7 +22,7 @@ import request from "supertest";
 import express from "express";
 import mapRoutes from "../../src/routes/map.js";
 import { mapUrl } from "../../src/lib/firecrawl.js";
-import { decryptByokKey, KeyServiceError } from "../../src/lib/key-client.js";
+import { resolveKey, KeyServiceError } from "../../src/lib/key-client.js";
 
 describe("/map endpoint", () => {
   let app: express.Application;
@@ -96,7 +96,7 @@ describe("/map endpoint", () => {
     });
 
     it("should return 400 when org has no Firecrawl key configured", async () => {
-      vi.mocked(decryptByokKey).mockRejectedValueOnce(
+      vi.mocked(resolveKey).mockRejectedValueOnce(
         new KeyServiceError("Not found", 404)
       );
 

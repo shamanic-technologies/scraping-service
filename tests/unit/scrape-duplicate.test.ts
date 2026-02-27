@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock key-client before imports
 vi.mock("../../src/lib/key-client.js", () => ({
-  decryptByokKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
+  resolveKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
   KeyServiceError: class KeyServiceError extends Error {
     constructor(message: string, public statusCode: number) {
       super(message);
