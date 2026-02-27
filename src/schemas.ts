@@ -17,6 +17,9 @@ registry.registerComponent("securitySchemes", "apiKey", {
 
 // --- Shared ---
 
+export const KeySourceSchema = z.enum(["platform", "app", "byok"]);
+export type KeySource = z.infer<typeof KeySourceSchema>;
+
 const ErrorResponseSchema = z
   .object({
     error: z.string(),
@@ -45,6 +48,9 @@ export const ScrapeRequestSchema = z
     sourceRefId: z.string().optional(),
     skipCache: z.boolean().optional().default(false),
     options: ScrapeOptionsSchema.optional(),
+    // Key resolution fields (pass-through to key-service)
+    appId: z.string().optional(),
+    keySource: KeySourceSchema.optional(),
     // RunsService passthrough fields
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
@@ -112,8 +118,11 @@ export const MapRequestSchema = z
     ignoreSitemap: z.boolean().optional(),
     sitemapOnly: z.boolean().optional(),
     includeSubdomains: z.boolean().optional(),
-    // Required: used for BYOK key resolution and run tracking
+    // Required: used for key resolution and run tracking
     orgId: z.string().min(1),
+    // Key resolution fields (pass-through to key-service)
+    appId: z.string().optional(),
+    keySource: KeySourceSchema.optional(),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
     userId: z.string().optional(),

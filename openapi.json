@@ -1,0 +1,696 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Scraping Service",
+    "description": "URL scraping service using Firecrawl - extracts company information from websites",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3010"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "ServiceInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "version"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ScrapeResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "industry": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeCount": {
+            "type": "string",
+            "nullable": true
+          },
+          "foundedYear": {
+            "type": "number",
+            "nullable": true
+          },
+          "headquarters": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "linkedinUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "twitterUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "products": {
+            "nullable": true
+          },
+          "services": {
+            "nullable": true
+          },
+          "rawMarkdown": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "companyName",
+          "description",
+          "industry",
+          "employeeCount",
+          "foundedYear",
+          "headquarters",
+          "website",
+          "email",
+          "phone",
+          "linkedinUrl",
+          "twitterUrl",
+          "rawMarkdown",
+          "createdAt"
+        ]
+      },
+      "ScrapeResponse": {
+        "type": "object",
+        "properties": {
+          "cached": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ScrapeResult"
+          }
+        },
+        "required": [
+          "cached",
+          "result"
+        ]
+      },
+      "ScrapeErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ScrapeOptions": {
+        "type": "object",
+        "properties": {
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "markdown",
+                "html",
+                "rawHtml",
+                "links",
+                "screenshot"
+              ]
+            }
+          },
+          "onlyMainContent": {
+            "type": "boolean"
+          },
+          "includeTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludeTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "waitFor": {
+            "type": "number"
+          }
+        }
+      },
+      "ScrapeRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceService": {
+            "type": "string"
+          },
+          "sourceRefId": {
+            "type": "string"
+          },
+          "skipCache": {
+            "type": "boolean",
+            "default": false
+          },
+          "options": {
+            "$ref": "#/components/schemas/ScrapeOptions"
+          },
+          "appId": {
+            "type": "string"
+          },
+          "keySource": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "app",
+              "byok"
+            ]
+          },
+          "brandId": {
+            "type": "string"
+          },
+          "campaignId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "parentRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workflowName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "orgId"
+        ]
+      },
+      "ScrapeByUrlResponse": {
+        "type": "object",
+        "properties": {
+          "cached": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ScrapeResult"
+          }
+        },
+        "required": [
+          "cached",
+          "expired",
+          "result"
+        ]
+      },
+      "MapSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "count": {
+            "type": "number"
+          },
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "urls",
+          "count"
+        ]
+      },
+      "MapErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "error"
+        ]
+      },
+      "MapRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "search": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "ignoreSitemap": {
+            "type": "boolean"
+          },
+          "sitemapOnly": {
+            "type": "boolean"
+          },
+          "includeSubdomains": {
+            "type": "boolean"
+          },
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "appId": {
+            "type": "string"
+          },
+          "keySource": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "app",
+              "byok"
+            ]
+          },
+          "brandId": {
+            "type": "string"
+          },
+          "campaignId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "parentRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workflowName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "orgId"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Service info",
+        "responses": {
+          "200": {
+            "description": "Service name and version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI spec",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0 specification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Spec not generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scrape": {
+      "post": {
+        "summary": "Scrape a URL and extract company information",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scrape result (cached or fresh)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Scrape failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapeErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scrape/{id}": {
+      "get": {
+        "summary": "Get a scrape result by ID",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scrape result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/ScrapeResult"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Result not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scrape/by-url": {
+      "get": {
+        "summary": "Get cached result by URL",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "required": true,
+            "name": "url",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cached scrape result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapeByUrlResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing url query param",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "No cached result found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/map": {
+      "post": {
+        "summary": "Discover all URLs on a website",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Map result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Map failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
