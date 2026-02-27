@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { mapUrl, MapOptions } from "../lib/firecrawl.js";
-import { decryptByokKey, KeyServiceError } from "../lib/key-client.js";
+import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { MapRequestSchema } from "../schemas.js";
@@ -29,6 +29,8 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       sitemapOnly,
       includeSubdomains,
       orgId,
+      appId,
+      keySource,
       brandId,
       campaignId,
       userId,
@@ -36,12 +38,15 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       workflowName,
     } = parsed.data;
 
-    // Decrypt org's Firecrawl key via key-service
+    // Resolve Firecrawl key via key-service (defaults to byok for backward compat)
     let firecrawlApiKey: string;
     try {
-      const decrypted = await decryptByokKey("firecrawl", orgId, {
-        method: "POST",
-        path: "/map",
+      const decrypted = await resolveKey({
+        provider: "firecrawl",
+        keySource: keySource ?? "byok",
+        orgId,
+        appId,
+        caller: { method: "POST", path: "/map" },
       });
       firecrawlApiKey = decrypted.key;
     } catch (err) {
@@ -49,7 +54,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         const status = err.statusCode === 404 ? 400 : 502;
         const message =
           err.statusCode === 404
-            ? "Firecrawl API key not configured for this organization"
+            ? "Firecrawl API key not configured"
             : "Failed to retrieve Firecrawl API key";
         return res.status(status).json({ error: message });
       }
