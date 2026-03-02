@@ -41,7 +41,6 @@ export interface Run {
   id: string;
   organizationId: string;
   userId: string | null;
-  appId: string;
   brandId: string | null;
   campaignId: string | null;
   workflowName: string | null;
@@ -71,7 +70,6 @@ export async function createRun(params: CreateRunParams): Promise<Run> {
     body: JSON.stringify({
       orgId: params.orgId,
       userId: params.userId,
-      appId: "scraping-service",
       serviceName: "scraping-service",
       taskName: params.taskName,
       ...(params.brandId && { brandId: params.brandId }),

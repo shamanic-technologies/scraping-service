@@ -20,7 +20,7 @@ describe("runs-client", () => {
   });
 
   describe("createRun", () => {
-    it("should POST to /v1/runs with correct body and hardcoded appId", async () => {
+    it("should POST to /v1/runs with correct body", async () => {
       const mockRun = { id: "run-123", status: "running" };
       fetchSpy.mockResolvedValueOnce({
         ok: true,
@@ -48,7 +48,7 @@ describe("runs-client", () => {
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(body.orgId).toBe("org_abc");
       expect(body.userId).toBe("user_123");
-      expect(body.appId).toBe("scraping-service");
+      expect(body).not.toHaveProperty("appId");
       expect(body.serviceName).toBe("scraping-service");
       expect(body.taskName).toBe("scrape");
     });
