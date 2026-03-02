@@ -1,5 +1,3 @@
-import type { KeySource } from "../schemas.js";
-
 const KEY_SERVICE_URL = process.env.KEY_SERVICE_URL;
 
 function getKeyServiceUrl(): string {
@@ -21,6 +19,7 @@ export interface CallerContext {
 export interface DecryptedKey {
   provider: string;
   key: string;
+  keySource: "org" | "platform";
 }
 
 export class KeyServiceError extends Error {
@@ -35,40 +34,27 @@ export class KeyServiceError extends Error {
 
 export interface ResolveKeyParams {
   provider: string;
-  keySource: KeySource;
-  orgId?: string;
-  appId?: string;
+  orgId: string;
+  userId: string;
   caller: CallerContext;
 }
 
 /**
- * Resolve a key from key-service based on keySource.
+ * Resolve a key from key-service using auto-resolution.
  *
- * - "byok"     → GET /internal/keys/{provider}/decrypt?orgId=...
- * - "app"      → GET /internal/app-keys/{provider}/decrypt?appId=...
- * - "platform" → GET /internal/platform-keys/{provider}/decrypt
+ * GET /keys/{provider}/decrypt?orgId=...&userId=...
+ *
+ * key-service auto-resolves the source (org key or platform key)
+ * and returns { provider, key, keySource } where keySource is "org" | "platform".
  */
 export async function resolveKey(params: ResolveKeyParams): Promise<DecryptedKey> {
-  const { provider, keySource, orgId, appId, caller } = params;
+  const { provider, orgId, userId, caller } = params;
   const base = getKeyServiceUrl();
 
-  let url: string;
-  switch (keySource) {
-    case "byok": {
-      if (!orgId) throw new Error("orgId is required for keySource 'byok'");
-      url = `${base}/internal/keys/${provider}/decrypt?orgId=${encodeURIComponent(orgId)}`;
-      break;
-    }
-    case "app": {
-      if (!appId) throw new Error("appId is required for keySource 'app'");
-      url = `${base}/internal/app-keys/${provider}/decrypt?appId=${encodeURIComponent(appId)}`;
-      break;
-    }
-    case "platform": {
-      url = `${base}/internal/platform-keys/${provider}/decrypt`;
-      break;
-    }
-  }
+  if (!orgId) throw new Error("orgId is required for key resolution");
+  if (!userId) throw new Error("userId is required for key resolution");
+
+  const url = `${base}/keys/${provider}/decrypt?orgId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}`;
 
   const response = await fetch(url, {
     method: "GET",
@@ -89,15 +75,4 @@ export async function resolveKey(params: ResolveKeyParams): Promise<DecryptedKey
   }
 
   return response.json() as Promise<DecryptedKey>;
-}
-
-/**
- * @deprecated Use resolveKey() with explicit keySource instead.
- */
-export async function decryptByokKey(
-  provider: string,
-  orgId: string,
-  caller: CallerContext
-): Promise<DecryptedKey> {
-  return resolveKey({ provider, keySource: "byok", orgId, caller });
 }

@@ -29,9 +29,8 @@ async function callRunsService<T>(
 
 export interface CreateRunParams {
   orgId: string;
-  appId?: string;
+  userId: string;
   taskName: string;
-  userId?: string;
   brandId?: string;
   campaignId?: string;
   parentRunId?: string;
@@ -71,10 +70,10 @@ export async function createRun(params: CreateRunParams): Promise<Run> {
     method: "POST",
     body: JSON.stringify({
       orgId: params.orgId,
-      appId: params.appId || "mcpfactory",
+      userId: params.userId,
+      appId: "scraping-service",
       serviceName: "scraping-service",
       taskName: params.taskName,
-      ...(params.userId && { userId: params.userId }),
       ...(params.brandId && { brandId: params.brandId }),
       ...(params.campaignId && { campaignId: params.campaignId }),
       ...(params.workflowName && { workflowName: params.workflowName }),
@@ -95,7 +94,7 @@ export async function updateRunStatus(
 
 export async function addCosts(
   id: string,
-  items: { costName: string; quantity: number }[]
+  items: { costName: string; quantity: number; costSource: "platform" | "org" }[]
 ): Promise<{ costs: Cost[] }> {
   return callRunsService<{ costs: Cost[] }>(`/v1/runs/${id}/costs`, {
     method: "POST",

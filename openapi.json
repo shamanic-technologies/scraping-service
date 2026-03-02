@@ -230,10 +230,6 @@
             "type": "string",
             "format": "uri"
           },
-          "orgId": {
-            "type": "string",
-            "minLength": 1
-          },
           "sourceService": {
             "type": "string"
           },
@@ -247,24 +243,10 @@
           "options": {
             "$ref": "#/components/schemas/ScrapeOptions"
           },
-          "appId": {
-            "type": "string"
-          },
-          "keySource": {
-            "type": "string",
-            "enum": [
-              "platform",
-              "app",
-              "byok"
-            ]
-          },
           "brandId": {
             "type": "string"
           },
           "campaignId": {
-            "type": "string"
-          },
-          "userId": {
             "type": "string"
           },
           "parentRunId": {
@@ -276,8 +258,7 @@
           }
         },
         "required": [
-          "url",
-          "orgId"
+          "url"
         ]
       },
       "ScrapeByUrlResponse": {
@@ -373,28 +354,10 @@
           "includeSubdomains": {
             "type": "boolean"
           },
-          "orgId": {
-            "type": "string",
-            "minLength": 1
-          },
-          "appId": {
-            "type": "string"
-          },
-          "keySource": {
-            "type": "string",
-            "enum": [
-              "platform",
-              "app",
-              "byok"
-            ]
-          },
           "brandId": {
             "type": "string"
           },
           "campaignId": {
-            "type": "string"
-          },
-          "userId": {
             "type": "string"
           },
           "parentRunId": {
@@ -406,8 +369,7 @@
           }
         },
         "required": [
-          "url",
-          "orgId"
+          "url"
         ]
       }
     },

@@ -28,27 +28,27 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       ignoreSitemap,
       sitemapOnly,
       includeSubdomains,
-      orgId,
-      appId,
-      keySource,
       brandId,
       campaignId,
-      userId,
       parentRunId,
       workflowName,
     } = parsed.data;
 
-    // Resolve Firecrawl key via key-service (defaults to byok for backward compat)
+    const orgId = (req as AuthenticatedRequest).orgId!;
+    const userId = (req as AuthenticatedRequest).userId!;
+
+    // Resolve Firecrawl key via key-service (auto-resolves org/platform source)
     let firecrawlApiKey: string;
+    let keySource: "org" | "platform";
     try {
       const decrypted = await resolveKey({
         provider: "firecrawl",
-        keySource: keySource ?? "byok",
         orgId,
-        appId,
+        userId,
         caller: { method: "POST", path: "/map" },
       });
       firecrawlApiKey = decrypted.key;
+      keySource = decrypted.keySource;
     } catch (err) {
       if (err instanceof KeyServiceError) {
         const status = err.statusCode === 404 ? 400 : 502;
@@ -66,10 +66,10 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     try {
       const run = await createRun({
         orgId,
+        userId,
         taskName: "map",
         brandId,
         campaignId,
-        userId,
         parentRunId,
         workflowName,
       });
@@ -105,7 +105,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     // Report costs and complete run (fire-and-forget)
     if (runId) {
       Promise.all([
-        addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1 }]),
+        addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }]),
         updateRunStatus(runId, "completed"),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
