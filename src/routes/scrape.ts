@@ -30,18 +30,17 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     const {
       url,
       sourceService,
-      orgId,
       sourceRefId,
       options,
       skipCache,
-      appId,
-      keySource,
       brandId,
       campaignId,
-      userId,
       parentRunId,
       workflowName,
     } = parsed.data;
+
+    const orgId = (req as AuthenticatedRequest).orgId!;
+    const userId = (req as AuthenticatedRequest).userId!;
 
     const normalized = normalizeUrl(url);
 
@@ -70,17 +69,18 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       }
     }
 
-    // Resolve Firecrawl key via key-service (defaults to byok for backward compat)
+    // Resolve Firecrawl key via key-service (auto-resolves org/platform source)
     let firecrawlApiKey: string;
+    let keySource: "org" | "platform";
     try {
       const decrypted = await resolveKey({
         provider: "firecrawl",
-        keySource: keySource ?? "byok",
         orgId,
-        appId,
+        userId,
         caller: { method: "POST", path: "/scrape" },
       });
       firecrawlApiKey = decrypted.key;
+      keySource = decrypted.keySource;
     } catch (err) {
       if (err instanceof KeyServiceError) {
         const status = err.statusCode === 404 ? 400 : 502;
@@ -98,10 +98,10 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     try {
       const run = await createRun({
         orgId,
+        userId,
         taskName: "scrape",
         brandId,
         campaignId,
-        userId,
         parentRunId,
         workflowName,
       });
@@ -223,7 +223,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // Report costs and complete run (fire-and-forget)
     if (runId) {
       Promise.all([
-        addCosts(runId, [{ costName: "firecrawl-scrape-credit", quantity: 1 }]),
+        addCosts(runId, [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: keySource }]),
         updateRunStatus(runId, "completed"),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }

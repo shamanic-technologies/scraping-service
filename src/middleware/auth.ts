@@ -2,10 +2,12 @@ import { Request, Response, NextFunction } from "express";
 
 export interface AuthenticatedRequest extends Request {
   sourceService?: string;
+  orgId?: string;
+  userId?: string;
 }
 
 /**
- * Service-to-service authentication via API key
+ * Service-to-service authentication via API key + identity headers
  */
 export function serviceAuth(
   req: AuthenticatedRequest,
@@ -28,6 +30,21 @@ export function serviceAuth(
   if (!validKey || apiKey !== validKey) {
     return res.status(401).json({ error: "Invalid API key" });
   }
+
+  // Extract and require identity headers
+  const orgId = req.headers["x-org-id"] as string;
+  const userId = req.headers["x-user-id"] as string;
+
+  if (!orgId) {
+    return res.status(400).json({ error: "Missing X-Org-Id header" });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: "Missing X-User-Id header" });
+  }
+
+  req.orgId = orgId;
+  req.userId = userId;
 
   // Extract source service from header if provided
   req.sourceService = req.headers["x-source-service"] as string;

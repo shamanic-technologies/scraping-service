@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.stubEnv("KEY_SERVICE_URL", "https://key.test.org");
 vi.stubEnv("KEY_SERVICE_API_KEY", "test-key-service-key");
 
-const { resolveKey, decryptByokKey, KeyServiceError } = await import(
+const { resolveKey, KeyServiceError } = await import(
   "../../src/lib/key-client.js"
 );
 
@@ -18,23 +18,24 @@ describe("key-client", () => {
     vi.restoreAllMocks();
   });
 
-  describe("resolveKey — byok", () => {
-    it("should call /internal/keys/{provider}/decrypt with orgId", async () => {
+  describe("resolveKey — auto-resolution", () => {
+    it("should call GET /keys/{provider}/decrypt with orgId and userId", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ provider: "firecrawl", key: "fc-byok" }),
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-key", keySource: "org" }),
       });
 
       const result = await resolveKey({
         provider: "firecrawl",
-        keySource: "byok",
         orgId: "org_abc",
+        userId: "user_123",
         caller: { method: "POST", path: "/scrape" },
       });
 
-      expect(result).toEqual({ provider: "firecrawl", key: "fc-byok" });
+      expect(result).toEqual({ provider: "firecrawl", key: "fc-key", keySource: "org" });
       expect(fetchSpy).toHaveBeenCalledWith(
-        "https://key.test.org/internal/keys/firecrawl/decrypt?orgId=org_abc",
+        "https://key.test.org/keys/firecrawl/decrypt?orgId=org_abc&userId=user_123",
         expect.objectContaining({
           method: "GET",
           headers: expect.objectContaining({
@@ -47,103 +48,62 @@ describe("key-client", () => {
       );
     });
 
-    it("should throw if orgId is missing for byok", async () => {
-      await expect(
-        resolveKey({
-          provider: "firecrawl",
-          keySource: "byok",
-          caller: { method: "POST", path: "/scrape" },
-        })
-      ).rejects.toThrow("orgId is required for keySource 'byok'");
-    });
-
-    it("should URI-encode the orgId", async () => {
+    it("should return keySource 'platform' when platform key is used", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ provider: "firecrawl", key: "fc-key" }),
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-platform", keySource: "platform" }),
+      });
+
+      const result = await resolveKey({
+        provider: "firecrawl",
+        orgId: "org_abc",
+        userId: "user_123",
+        caller: { method: "POST", path: "/map" },
+      });
+
+      expect(result.keySource).toBe("platform");
+    });
+
+    it("should URI-encode orgId and userId", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-key", keySource: "org" }),
       });
 
       await resolveKey({
         provider: "firecrawl",
-        keySource: "byok",
         orgId: "org_abc+def",
+        userId: "user_1&2",
         caller: { method: "POST", path: "/scrape" },
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining("orgId=org_abc%2Bdef"),
-        expect.anything()
-      );
-    });
-  });
-
-  describe("resolveKey — app", () => {
-    it("should call /internal/app-keys/{provider}/decrypt with appId", async () => {
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ provider: "firecrawl", key: "fc-app" }),
-      });
-
-      const result = await resolveKey({
-        provider: "firecrawl",
-        keySource: "app",
-        appId: "mcpfactory",
-        caller: { method: "POST", path: "/scrape" },
-      });
-
-      expect(result).toEqual({ provider: "firecrawl", key: "fc-app" });
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "https://key.test.org/internal/app-keys/firecrawl/decrypt?appId=mcpfactory",
-        expect.objectContaining({ method: "GET" })
-      );
+      const calledUrl = fetchSpy.mock.calls[0][0] as string;
+      expect(calledUrl).toContain("orgId=org_abc%2Bdef");
+      expect(calledUrl).toContain("userId=user_1%262");
     });
 
-    it("should throw if appId is missing for app", async () => {
+    it("should throw if orgId is missing", async () => {
       await expect(
         resolveKey({
           provider: "firecrawl",
-          keySource: "app",
-          orgId: "org_abc",
+          orgId: "",
+          userId: "user_123",
           caller: { method: "POST", path: "/scrape" },
         })
-      ).rejects.toThrow("appId is required for keySource 'app'");
-    });
-  });
-
-  describe("resolveKey — platform", () => {
-    it("should call /internal/platform-keys/{provider}/decrypt with no query params", async () => {
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ provider: "firecrawl", key: "fc-platform" }),
-      });
-
-      const result = await resolveKey({
-        provider: "firecrawl",
-        keySource: "platform",
-        caller: { method: "POST", path: "/scrape" },
-      });
-
-      expect(result).toEqual({ provider: "firecrawl", key: "fc-platform" });
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "https://key.test.org/internal/platform-keys/firecrawl/decrypt",
-        expect.objectContaining({ method: "GET" })
-      );
+      ).rejects.toThrow("orgId is required");
     });
 
-    it("should not require orgId or appId for platform", async () => {
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ provider: "firecrawl", key: "fc-platform" }),
-      });
-
-      // No orgId, no appId — should not throw
+    it("should throw if userId is missing", async () => {
       await expect(
         resolveKey({
           provider: "firecrawl",
-          keySource: "platform",
-          caller: { method: "POST", path: "/map" },
+          orgId: "org_abc",
+          userId: "",
+          caller: { method: "POST", path: "/scrape" },
         })
-      ).resolves.toEqual({ provider: "firecrawl", key: "fc-platform" });
+      ).rejects.toThrow("userId is required");
     });
   });
 
@@ -158,8 +118,8 @@ describe("key-client", () => {
       await expect(
         resolveKey({
           provider: "firecrawl",
-          keySource: "byok",
           orgId: "org_abc",
+          userId: "user_123",
           caller: { method: "POST", path: "/scrape" },
         })
       ).rejects.toThrow(KeyServiceError);
@@ -173,8 +133,8 @@ describe("key-client", () => {
       try {
         await resolveKey({
           provider: "firecrawl",
-          keySource: "byok",
           orgId: "org_abc",
+          userId: "user_123",
           caller: { method: "POST", path: "/scrape" },
         });
       } catch (err) {
@@ -192,30 +152,11 @@ describe("key-client", () => {
       await expect(
         resolveKey({
           provider: "firecrawl",
-          keySource: "platform",
+          orgId: "org_abc",
+          userId: "user_123",
           caller: { method: "POST", path: "/map" },
         })
       ).rejects.toThrow(KeyServiceError);
-    });
-  });
-
-  describe("decryptByokKey (backward compat)", () => {
-    it("should delegate to resolveKey with keySource byok", async () => {
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ provider: "firecrawl", key: "fc-key-123" }),
-      });
-
-      const result = await decryptByokKey("firecrawl", "org_abc", {
-        method: "POST",
-        path: "/scrape",
-      });
-
-      expect(result).toEqual({ provider: "firecrawl", key: "fc-key-123" });
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "https://key.test.org/internal/keys/firecrawl/decrypt?orgId=org_abc",
-        expect.objectContaining({ method: "GET" })
-      );
     });
   });
 });

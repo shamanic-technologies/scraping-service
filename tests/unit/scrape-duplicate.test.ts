@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock key-client before imports
 vi.mock("../../src/lib/key-client.js", () => ({
-  resolveKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
+  resolveKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key", keySource: "org" }),
   KeyServiceError: class KeyServiceError extends Error {
     constructor(message: string, public statusCode: number) {
       super(message);
@@ -55,8 +55,12 @@ describe("POST /scrape - duplicate URL handling", () => {
 
     app = express();
     app.use(express.json());
-    // Skip auth
-    app.use((req, res, next) => next());
+    // Skip auth — set identity from headers
+    app.use((req: any, res, next) => {
+      req.orgId = req.headers["x-org-id"] || "org_test";
+      req.userId = req.headers["x-user-id"] || "user_test";
+      next();
+    });
     app.use(scrapeRoutes);
 
     // Default: insert returns a result
@@ -92,7 +96,6 @@ describe("POST /scrape - duplicate URL handling", () => {
 
     const response = await request(app).post("/scrape").send({
       url: "https://mcpfactory.org",
-      orgId: "org_test",
     });
 
     expect(response.status).toBe(200);
@@ -122,7 +125,6 @@ describe("POST /scrape - duplicate URL handling", () => {
 
     await request(app).post("/scrape").send({
       url: "https://mcpfactory.org",
-      orgId: "org_test",
     });
 
     // Verify scrapeCache insert was called with onConflictDoUpdate

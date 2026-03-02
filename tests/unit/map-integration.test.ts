@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock key-client before importing app
 vi.mock("../../src/lib/key-client.js", () => ({
-  resolveKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key" }),
+  resolveKey: vi.fn().mockResolvedValue({ provider: "firecrawl", key: "test-key", keySource: "org" }),
   KeyServiceError: class KeyServiceError extends Error {
     constructor(message: string, public statusCode: number) {
       super(message);
@@ -33,8 +33,12 @@ describe("/map endpoint", () => {
     app = express();
     app.use(express.json());
     
-    // Skip auth for tests
-    app.use((req, res, next) => next());
+    // Skip auth for tests — set identity from headers
+    app.use((req: any, res, next) => {
+      req.orgId = req.headers["x-org-id"] || "org_test";
+      req.userId = req.headers["x-user-id"] || "user_test";
+      next();
+    });
     
     app.use(mapRoutes);
   });
@@ -63,7 +67,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com", orgId: "org_test" });
+        .send({ url: "https://example.com" });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -88,7 +92,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com", orgId: "org_test" });
+        .send({ url: "https://example.com" });
 
       expect(response.status).toBe(500);
       expect(response.body.success).toBe(false);
@@ -102,7 +106,7 @@ describe("/map endpoint", () => {
 
       const response = await request(app)
         .post("/map")
-        .send({ url: "https://example.com", orgId: "org_no_key" });
+        .send({ url: "https://example.com" });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain("not configured");
@@ -116,7 +120,7 @@ describe("/map endpoint", () => {
 
       await request(app)
         .post("/map")
-        .send({ url: "https://example.com", orgId: "org_test", search: "pricing" });
+        .send({ url: "https://example.com", search: "pricing" });
 
       expect(mapUrl).toHaveBeenCalledWith(
         "https://example.com",
