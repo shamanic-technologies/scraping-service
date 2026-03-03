@@ -47,7 +47,6 @@ export const ScrapeRequestSchema = z
     // RunsService passthrough fields
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    parentRunId: z.string().uuid().optional(),
     workflowName: z.string().optional(),
   })
   .openapi("ScrapeRequest");
@@ -112,7 +111,6 @@ export const MapRequestSchema = z
     includeSubdomains: z.boolean().optional(),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    parentRunId: z.string().uuid().optional(),
     workflowName: z.string().optional(),
   })
   .openapi("MapRequest");

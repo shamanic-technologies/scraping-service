@@ -30,12 +30,12 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       includeSubdomains,
       brandId,
       campaignId,
-      parentRunId,
       workflowName,
     } = parsed.data;
 
     const orgId = (req as AuthenticatedRequest).orgId!;
     const userId = (req as AuthenticatedRequest).userId!;
+    const parentRunId = (req as AuthenticatedRequest).runId;
 
     // Resolve Firecrawl key via key-service (auto-resolves org/platform source)
     let firecrawlApiKey: string;

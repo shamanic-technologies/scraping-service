@@ -35,12 +35,12 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       skipCache,
       brandId,
       campaignId,
-      parentRunId,
       workflowName,
     } = parsed.data;
 
     const orgId = (req as AuthenticatedRequest).orgId!;
     const userId = (req as AuthenticatedRequest).userId!;
+    const parentRunId = (req as AuthenticatedRequest).runId;
 
     const normalized = normalizeUrl(url);
 
