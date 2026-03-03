@@ -55,10 +55,11 @@ describe("POST /scrape - duplicate URL handling", () => {
 
     app = express();
     app.use(express.json());
-    // Skip auth — set identity from headers
+    // Skip auth — set identity + runId from headers
     app.use((req: any, res, next) => {
       req.orgId = req.headers["x-org-id"] || "org_test";
       req.userId = req.headers["x-user-id"] || "user_test";
+      req.runId = req.headers["x-run-id"] || "caller-run-id";
       next();
     });
     app.use(scrapeRoutes);

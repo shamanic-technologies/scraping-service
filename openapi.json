@@ -249,10 +249,6 @@
           "campaignId": {
             "type": "string"
           },
-          "parentRunId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "workflowName": {
             "type": "string"
           }
@@ -359,10 +355,6 @@
           },
           "campaignId": {
             "type": "string"
-          },
-          "parentRunId": {
-            "type": "string",
-            "format": "uuid"
           },
           "workflowName": {
             "type": "string"

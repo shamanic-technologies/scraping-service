@@ -33,10 +33,11 @@ describe("/map endpoint", () => {
     app = express();
     app.use(express.json());
     
-    // Skip auth for tests — set identity from headers
+    // Skip auth for tests — set identity + runId from headers
     app.use((req: any, res, next) => {
       req.orgId = req.headers["x-org-id"] || "org_test";
       req.userId = req.headers["x-user-id"] || "user_test";
+      req.runId = req.headers["x-run-id"] || "caller-run-id";
       next();
     });
     

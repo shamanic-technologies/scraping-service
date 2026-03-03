@@ -9,6 +9,7 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require these headers
 - `X-API-Key` — service-to-service authentication key
 - `X-Org-Id` — internal org UUID from client-service
 - `X-User-Id` — internal user UUID from client-service
+- `X-Run-Id` — the caller's run ID (used as `parentRunId` when this service creates its own run in runs-service)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -31,7 +32,6 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require these headers
   "options": {},
   "brandId": "brand_1",
   "campaignId": "campaign_2",
-  "parentRunId": "uuid",
   "workflowName": "gtm-outbound"
 }
 ```
@@ -105,7 +105,7 @@ Migrations run automatically on startup (skipped in test environment).
 
 ## Auth
 
-Service-to-service authentication via `X-API-Key` header. The key is validated against `SCRAPING_SERVICE_API_KEY`. Required identity headers `X-Org-Id` and `X-User-Id` identify the calling org and user. Optional `X-Source-Service` header tracks the calling service.
+Service-to-service authentication via `X-API-Key` header. The key is validated against `SCRAPING_SERVICE_API_KEY`. Required identity headers `X-Org-Id`, `X-User-Id`, and `X-Run-Id` identify the calling org, user, and parent run. Optional `X-Source-Service` header tracks the calling service.
 
 ## Docker
 
