@@ -20,18 +20,17 @@ describe("runs-client", () => {
   });
 
   describe("createRun", () => {
-    it("should POST to /v1/runs with correct body", async () => {
+    it("should POST to /v1/runs with identity headers and correct body", async () => {
       const mockRun = { id: "run-123", status: "running" };
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockRun),
       });
 
-      const result = await createRun({
-        orgId: "org_abc",
-        userId: "user_123",
-        taskName: "scrape",
-      });
+      const result = await createRun(
+        { taskName: "scrape" },
+        { orgId: "org_abc", userId: "user_123" }
+      );
 
       expect(result).toEqual(mockRun);
       expect(fetchSpy).toHaveBeenCalledWith(
@@ -41,57 +40,57 @@ describe("runs-client", () => {
           headers: expect.objectContaining({
             "Content-Type": "application/json",
             "X-API-Key": "test-api-key",
+            "x-org-id": "org_abc",
+            "x-user-id": "user_123",
           }),
         })
       );
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-      expect(body.orgId).toBe("org_abc");
-      expect(body.userId).toBe("user_123");
-      expect(body).not.toHaveProperty("appId");
+      expect(body).not.toHaveProperty("orgId");
+      expect(body).not.toHaveProperty("userId");
       expect(body.serviceName).toBe("scraping-service");
       expect(body.taskName).toBe("scrape");
     });
 
-    it("should pass optional fields when provided", async () => {
+    it("should send x-run-id header as parentRunId", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ id: "run-456" }),
       });
 
-      await createRun({
-        orgId: "org_abc",
-        userId: "user_123",
-        taskName: "scrape",
-        brandId: "brand_1",
-        campaignId: "campaign_2",
-        parentRunId: "550e8400-e29b-41d4-a716-446655440000",
-        workflowName: "gtm-outbound",
-      });
+      await createRun(
+        { taskName: "scrape", brandId: "brand_1", campaignId: "campaign_2", workflowName: "gtm-outbound" },
+        { orgId: "org_abc", userId: "user_123", runId: "550e8400-e29b-41d4-a716-446655440000" }
+      );
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers["x-run-id"]).toBe("550e8400-e29b-41d4-a716-446655440000");
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(body).not.toHaveProperty("parentRunId");
       expect(body.brandId).toBe("brand_1");
       expect(body.campaignId).toBe("campaign_2");
-      expect(body.parentRunId).toBe("550e8400-e29b-41d4-a716-446655440000");
       expect(body.workflowName).toBe("gtm-outbound");
     });
 
-    it("should not include undefined optional fields", async () => {
+    it("should not include x-run-id header when runId is undefined", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ id: "run-789" }),
       });
 
-      await createRun({
-        orgId: "org_abc",
-        userId: "user_123",
-        taskName: "scrape",
-      });
+      await createRun(
+        { taskName: "scrape" },
+        { orgId: "org_abc", userId: "user_123" }
+      );
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers).not.toHaveProperty("x-run-id");
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(body).not.toHaveProperty("brandId");
       expect(body).not.toHaveProperty("campaignId");
-      expect(body).not.toHaveProperty("parentRunId");
       expect(body).not.toHaveProperty("workflowName");
     });
 
@@ -99,30 +98,39 @@ describe("runs-client", () => {
       fetchSpy.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        text: () => Promise.resolve('{"error":"Missing orgId"}'),
+        text: () => Promise.resolve('{"error":"Missing x-org-id"}'),
       });
 
       await expect(
-        createRun({ orgId: "", userId: "user_123", taskName: "scrape" })
+        createRun({ taskName: "scrape" }, { orgId: "", userId: "user_123" })
       ).rejects.toThrow("400");
     });
   });
 
   describe("updateRunStatus", () => {
-    it("should PATCH to /v1/runs/{id}", async () => {
+    it("should PATCH to /v1/runs/{id} with identity headers", async () => {
       const mockRun = { id: "run-123", status: "completed" };
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockRun),
       });
 
-      const result = await updateRunStatus("run-123", "completed");
+      const result = await updateRunStatus(
+        "run-123",
+        "completed",
+        { orgId: "org_abc", userId: "user_123", runId: "run-123" }
+      );
 
       expect(result).toEqual(mockRun);
       expect(fetchSpy).toHaveBeenCalledWith(
         "https://runs.test.org/v1/runs/run-123",
         expect.objectContaining({
           method: "PATCH",
+          headers: expect.objectContaining({
+            "x-org-id": "org_abc",
+            "x-user-id": "user_123",
+            "x-run-id": "run-123",
+          }),
           body: JSON.stringify({ status: "completed" }),
         })
       );
@@ -130,7 +138,7 @@ describe("runs-client", () => {
   });
 
   describe("addCosts", () => {
-    it("should POST costs with costSource to /v1/runs/{id}/costs", async () => {
+    it("should POST costs with identity headers to /v1/runs/{id}/costs", async () => {
       const mockCosts = {
         costs: [{ id: "cost-1", costName: "firecrawl-scrape-credit" }],
       };
@@ -139,15 +147,22 @@ describe("runs-client", () => {
         json: () => Promise.resolve(mockCosts),
       });
 
-      const result = await addCosts("run-123", [
-        { costName: "firecrawl-scrape-credit", quantity: 1, costSource: "org" as const },
-      ]);
+      const result = await addCosts(
+        "run-123",
+        [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: "org" as const }],
+        { orgId: "org_abc", userId: "user_123", runId: "run-123" }
+      );
 
       expect(result).toEqual(mockCosts);
       expect(fetchSpy).toHaveBeenCalledWith(
         "https://runs.test.org/v1/runs/run-123/costs",
         expect.objectContaining({
           method: "POST",
+          headers: expect.objectContaining({
+            "x-org-id": "org_abc",
+            "x-user-id": "user_123",
+            "x-run-id": "run-123",
+          }),
           body: JSON.stringify({
             items: [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: "org" }],
           }),
@@ -161,9 +176,11 @@ describe("runs-client", () => {
         json: () => Promise.resolve({ costs: [] }),
       });
 
-      await addCosts("run-456", [
-        { costName: "firecrawl-map-credit", quantity: 1, costSource: "platform" as const },
-      ]);
+      await addCosts(
+        "run-456",
+        [{ costName: "firecrawl-map-credit", quantity: 1, costSource: "platform" as const }],
+        { orgId: "org_abc", userId: "user_123", runId: "run-456" }
+      );
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(body.items[0].costSource).toBe("platform");

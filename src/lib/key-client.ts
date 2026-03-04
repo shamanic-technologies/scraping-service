@@ -36,34 +36,44 @@ export interface ResolveKeyParams {
   provider: string;
   orgId: string;
   userId: string;
+  runId?: string;
   caller: CallerContext;
 }
 
 /**
  * Resolve a key from key-service using auto-resolution.
  *
- * GET /keys/{provider}/decrypt?orgId=...&userId=...
+ * GET /keys/{provider}/decrypt
  *
+ * Identity is passed via x-org-id and x-user-id headers.
  * key-service auto-resolves the source (org key or platform key)
  * and returns { provider, key, keySource } where keySource is "org" | "platform".
  */
 export async function resolveKey(params: ResolveKeyParams): Promise<DecryptedKey> {
-  const { provider, orgId, userId, caller } = params;
+  const { provider, orgId, userId, runId, caller } = params;
   const base = getKeyServiceUrl();
 
   if (!orgId) throw new Error("orgId is required for key resolution");
   if (!userId) throw new Error("userId is required for key resolution");
 
-  const url = `${base}/keys/${provider}/decrypt?orgId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}`;
+  const url = `${base}/keys/${provider}/decrypt`;
+
+  const headers: Record<string, string> = {
+    "x-api-key": getApiKey(),
+    "x-org-id": orgId,
+    "x-user-id": userId,
+    "x-caller-service": "scraping-service",
+    "x-caller-method": caller.method,
+    "x-caller-path": caller.path,
+  };
+
+  if (runId) {
+    headers["x-run-id"] = runId;
+  }
 
   const response = await fetch(url, {
     method: "GET",
-    headers: {
-      "x-api-key": getApiKey(),
-      "x-caller-service": "scraping-service",
-      "x-caller-method": caller.method,
-      "x-caller-path": caller.path,
-    },
+    headers,
   });
 
   if (!response.ok) {

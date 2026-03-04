@@ -19,7 +19,7 @@ describe("key-client", () => {
   });
 
   describe("resolveKey — auto-resolution", () => {
-    it("should call GET /keys/{provider}/decrypt with orgId and userId", async () => {
+    it("should call GET /keys/{provider}/decrypt with identity headers", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -35,17 +35,56 @@ describe("key-client", () => {
 
       expect(result).toEqual({ provider: "firecrawl", key: "fc-key", keySource: "org" });
       expect(fetchSpy).toHaveBeenCalledWith(
-        "https://key.test.org/keys/firecrawl/decrypt?orgId=org_abc&userId=user_123",
+        "https://key.test.org/keys/firecrawl/decrypt",
         expect.objectContaining({
           method: "GET",
           headers: expect.objectContaining({
             "x-api-key": "test-key-service-key",
+            "x-org-id": "org_abc",
+            "x-user-id": "user_123",
             "x-caller-service": "scraping-service",
             "x-caller-method": "POST",
             "x-caller-path": "/scrape",
           }),
         })
       );
+    });
+
+    it("should forward x-run-id header when runId is provided", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-key", keySource: "org" }),
+      });
+
+      await resolveKey({
+        provider: "firecrawl",
+        orgId: "org_abc",
+        userId: "user_123",
+        runId: "run-456",
+        caller: { method: "POST", path: "/scrape" },
+      });
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers["x-run-id"]).toBe("run-456");
+    });
+
+    it("should not include x-run-id header when runId is undefined", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-key", keySource: "org" }),
+      });
+
+      await resolveKey({
+        provider: "firecrawl",
+        orgId: "org_abc",
+        userId: "user_123",
+        caller: { method: "POST", path: "/scrape" },
+      });
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers).not.toHaveProperty("x-run-id");
     });
 
     it("should return keySource 'platform' when platform key is used", async () => {
@@ -65,7 +104,7 @@ describe("key-client", () => {
       expect(result.keySource).toBe("platform");
     });
 
-    it("should URI-encode orgId and userId", async () => {
+    it("should not pass orgId/userId as query parameters", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -74,14 +113,15 @@ describe("key-client", () => {
 
       await resolveKey({
         provider: "firecrawl",
-        orgId: "org_abc+def",
-        userId: "user_1&2",
+        orgId: "org_abc",
+        userId: "user_123",
         caller: { method: "POST", path: "/scrape" },
       });
 
       const calledUrl = fetchSpy.mock.calls[0][0] as string;
-      expect(calledUrl).toContain("orgId=org_abc%2Bdef");
-      expect(calledUrl).toContain("userId=user_1%262");
+      expect(calledUrl).toBe("https://key.test.org/keys/firecrawl/decrypt");
+      expect(calledUrl).not.toContain("orgId=");
+      expect(calledUrl).not.toContain("userId=");
     });
 
     it("should throw if orgId is missing", async () => {

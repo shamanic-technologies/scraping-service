@@ -45,6 +45,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         provider: "firecrawl",
         orgId,
         userId,
+        runId: parentRunId,
         caller: { method: "POST", path: "/map" },
       });
       firecrawlApiKey = decrypted.key;
@@ -62,17 +63,13 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     }
 
     // Create run in RunsService
+    // x-run-id = parentRunId so runs-service sets it as the parent
     let runId: string | undefined;
     try {
-      const run = await createRun({
-        orgId,
-        userId,
-        taskName: "map",
-        brandId,
-        campaignId,
-        parentRunId,
-        workflowName,
-      });
+      const run = await createRun(
+        { taskName: "map", brandId, campaignId, workflowName },
+        { orgId, userId, runId: parentRunId }
+      );
       runId = run.id;
     } catch (err) {
       console.error("Failed to create run:", err);
@@ -90,7 +87,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     if (!result.success) {
       if (runId) {
-        updateRunStatus(runId, "failed").catch((err) =>
+        updateRunStatus(runId, "failed", { orgId, userId, runId }).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -104,9 +101,10 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
+      const runIdentity = { orgId, userId, runId };
       Promise.all([
-        addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }]),
-        updateRunStatus(runId, "completed"),
+        addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }], runIdentity),
+        updateRunStatus(runId, "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
 
