@@ -58,6 +58,7 @@ import { serviceAuth } from "../../src/middleware/auth.js";
 import mapRoutes from "../../src/routes/map.js";
 import scrapeRoutes from "../../src/routes/scrape.js";
 import { scrapeUrl } from "../../src/lib/firecrawl.js";
+import { resolveKey } from "../../src/lib/key-client.js";
 
 describe("X-Run-Id header", () => {
   describe("auth middleware enforcement", () => {
@@ -135,7 +136,7 @@ describe("X-Run-Id header", () => {
       app.use(mapRoutes);
     });
 
-    it("should pass x-run-id value as parentRunId to createRun", async () => {
+    it("should pass x-run-id as parentRunId via identity context to createRun", async () => {
       const callerRunId = "550e8400-e29b-41d4-a716-446655440000";
 
       await request(app)
@@ -144,8 +145,42 @@ describe("X-Run-Id header", () => {
         .send({ url: "https://example.com" });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
+        expect.objectContaining({ taskName: "map" }),
+        expect.objectContaining({ runId: callerRunId })
+      );
+    });
+
+    it("should pass orgId and userId in identity context to createRun", async () => {
+      await request(app)
+        .post("/map")
+        .set("X-Org-Id", "org_custom")
+        .set("X-User-Id", "user_custom")
+        .set("X-Run-Id", "run-abc")
+        .send({ url: "https://example.com" });
+
+      expect(mockCreateRun).toHaveBeenCalledWith(
+        expect.any(Object),
         expect.objectContaining({
-          parentRunId: callerRunId,
+          orgId: "org_custom",
+          userId: "user_custom",
+          runId: "run-abc",
+        })
+      );
+    });
+
+    it("should forward identity to resolveKey", async () => {
+      await request(app)
+        .post("/map")
+        .set("X-Org-Id", "org_fwd")
+        .set("X-User-Id", "user_fwd")
+        .set("X-Run-Id", "run-fwd")
+        .send({ url: "https://example.com" });
+
+      expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId: "org_fwd",
+          userId: "user_fwd",
+          runId: "run-fwd",
         })
       );
     });
@@ -164,9 +199,8 @@ describe("X-Run-Id header", () => {
 
       // Should use header value, not body value
       expect(mockCreateRun).toHaveBeenCalledWith(
-        expect.objectContaining({
-          parentRunId: headerRunId,
-        })
+        expect.any(Object),
+        expect.objectContaining({ runId: headerRunId })
       );
     });
   });
@@ -211,7 +245,7 @@ describe("X-Run-Id header", () => {
       });
     });
 
-    it("should pass x-run-id as parentRunId to createRun for /scrape", async () => {
+    it("should pass x-run-id as parentRunId via identity context for /scrape", async () => {
       const callerRunId = "scrape-caller-run-id";
 
       await request(app)
@@ -220,9 +254,24 @@ describe("X-Run-Id header", () => {
         .send({ url: "https://example.com" });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
+        expect.objectContaining({ taskName: "scrape" }),
+        expect.objectContaining({ runId: callerRunId })
+      );
+    });
+
+    it("should forward identity to resolveKey for /scrape", async () => {
+      await request(app)
+        .post("/scrape")
+        .set("X-Org-Id", "org_s")
+        .set("X-User-Id", "user_s")
+        .set("X-Run-Id", "run_s")
+        .send({ url: "https://example.com" });
+
+      expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
         expect.objectContaining({
-          parentRunId: callerRunId,
-          taskName: "scrape",
+          orgId: "org_s",
+          userId: "user_s",
+          runId: "run_s",
         })
       );
     });

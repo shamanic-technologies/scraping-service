@@ -6,6 +6,12 @@ function getApiKey(): string {
   return key;
 }
 
+export interface IdentityContext {
+  orgId: string;
+  userId: string;
+  runId?: string;
+}
+
 async function callRunsService<T>(
   path: string,
   options: RequestInit = {}
@@ -28,12 +34,9 @@ async function callRunsService<T>(
 }
 
 export interface CreateRunParams {
-  orgId: string;
-  userId: string;
   taskName: string;
   brandId?: string;
   campaignId?: string;
-  parentRunId?: string;
   workflowName?: string;
 }
 
@@ -64,38 +67,51 @@ export interface Cost {
   createdAt: string;
 }
 
-export async function createRun(params: CreateRunParams): Promise<Run> {
+function identityHeaders(identity: IdentityContext): Record<string, string> {
+  const headers: Record<string, string> = {
+    "x-org-id": identity.orgId,
+    "x-user-id": identity.userId,
+  };
+  if (identity.runId) {
+    headers["x-run-id"] = identity.runId;
+  }
+  return headers;
+}
+
+export async function createRun(params: CreateRunParams, identity: IdentityContext): Promise<Run> {
   return callRunsService<Run>("/v1/runs", {
     method: "POST",
+    headers: identityHeaders(identity),
     body: JSON.stringify({
-      orgId: params.orgId,
-      userId: params.userId,
       serviceName: "scraping-service",
       taskName: params.taskName,
       ...(params.brandId && { brandId: params.brandId }),
       ...(params.campaignId && { campaignId: params.campaignId }),
       ...(params.workflowName && { workflowName: params.workflowName }),
-      ...(params.parentRunId && { parentRunId: params.parentRunId }),
     }),
   });
 }
 
 export async function updateRunStatus(
   id: string,
-  status: "completed" | "failed"
+  status: "completed" | "failed",
+  identity: IdentityContext
 ): Promise<Run> {
   return callRunsService<Run>(`/v1/runs/${id}`, {
     method: "PATCH",
+    headers: identityHeaders(identity),
     body: JSON.stringify({ status }),
   });
 }
 
 export async function addCosts(
   id: string,
-  items: { costName: string; quantity: number; costSource: "platform" | "org" }[]
+  items: { costName: string; quantity: number; costSource: "platform" | "org" }[],
+  identity: IdentityContext
 ): Promise<{ costs: Cost[] }> {
   return callRunsService<{ costs: Cost[] }>(`/v1/runs/${id}/costs`, {
     method: "POST",
+    headers: identityHeaders(identity),
     body: JSON.stringify({ items }),
   });
 }
