@@ -37,6 +37,11 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     const userId = (req as AuthenticatedRequest).userId!;
     const parentRunId = (req as AuthenticatedRequest).runId;
 
+    // Headers take precedence over body fields for tracking
+    const effectiveCampaignId = (req as AuthenticatedRequest).campaignId || campaignId;
+    const effectiveBrandId = (req as AuthenticatedRequest).brandId || brandId;
+    const effectiveWorkflowName = (req as AuthenticatedRequest).workflowName || workflowName;
+
     // Resolve Firecrawl key via key-service (auto-resolves org/platform source)
     let firecrawlApiKey: string;
     let keySource: "org" | "platform";
@@ -46,6 +51,9 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         orgId,
         userId,
         runId: parentRunId,
+        campaignId: effectiveCampaignId,
+        brandId: effectiveBrandId,
+        workflowName: effectiveWorkflowName,
         caller: { method: "POST", path: "/map" },
       });
       firecrawlApiKey = decrypted.key;
@@ -67,8 +75,8 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     let runId: string | undefined;
     try {
       const run = await createRun(
-        { taskName: "map", brandId, campaignId, workflowName },
-        { orgId, userId, runId: parentRunId }
+        { taskName: "map", brandId: effectiveBrandId, campaignId: effectiveCampaignId, workflowName: effectiveWorkflowName },
+        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName }
       );
       runId = run.id;
     } catch (err) {
@@ -87,7 +95,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     if (!result.success) {
       if (runId) {
-        updateRunStatus(runId, "failed", { orgId, userId, runId }).catch((err) =>
+        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName }).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -101,7 +109,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
-      const runIdentity = { orgId, userId, runId };
+      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName };
       Promise.all([
         addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),

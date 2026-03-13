@@ -22,6 +22,13 @@
       "when": 1772073752880,
       "tag": "0002_broken_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773406284019,
+      "tag": "0003_romantic_serpent_society",
+      "breakpoints": true
     }
   ]
 }

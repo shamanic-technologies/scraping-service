@@ -10,6 +10,9 @@ export interface IdentityContext {
   orgId: string;
   userId: string;
   runId?: string;
+  campaignId?: string;
+  brandId?: string;
+  workflowName?: string;
 }
 
 async function callRunsService<T>(
@@ -74,6 +77,15 @@ function identityHeaders(identity: IdentityContext): Record<string, string> {
   };
   if (identity.runId) {
     headers["x-run-id"] = identity.runId;
+  }
+  if (identity.campaignId) {
+    headers["x-campaign-id"] = identity.campaignId;
+  }
+  if (identity.brandId) {
+    headers["x-brand-id"] = identity.brandId;
+  }
+  if (identity.workflowName) {
+    headers["x-workflow-name"] = identity.workflowName;
   }
   return headers;
 }

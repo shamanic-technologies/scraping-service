@@ -11,6 +11,12 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require these headers
 - `X-User-Id` — internal user UUID from client-service
 - `X-Run-Id` — the caller's run ID (used as `parentRunId` when this service creates its own run in runs-service)
 
+Optional tracking headers (injected automatically by workflow-service):
+
+- `X-Campaign-Id` — campaign identifier (stored in DB, forwarded to downstream services)
+- `X-Brand-Id` — brand identifier (stored in DB, forwarded to downstream services)
+- `X-Workflow-Name` — name of the executing workflow (stored in DB, forwarded to downstream services)
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | Service info (name, version) |
@@ -95,7 +101,7 @@ npm run dev
 
 Uses PostgreSQL via Drizzle ORM. Tables:
 
-- **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, timestamps)
+- **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, `campaign_id`, `brand_id`, `workflow_name`, timestamps)
 - **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
 - **scrape_cache** - URL-based cache lookup with TTL
 

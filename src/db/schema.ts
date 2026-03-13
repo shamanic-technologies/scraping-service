@@ -31,6 +31,11 @@ export const scrapeRequests = pgTable(
     // RunsService run ID
     runId: text("run_id"),
 
+    // Tracking headers (injected by workflow-service)
+    campaignId: text("campaign_id"),
+    brandId: text("brand_id"),
+    workflowName: text("workflow_name"),
+
     // Status tracking
     status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
     errorMessage: text("error_message"),

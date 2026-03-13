@@ -5,6 +5,9 @@ export interface AuthenticatedRequest extends Request {
   orgId?: string;
   userId?: string;
   runId?: string;
+  campaignId?: string;
+  brandId?: string;
+  workflowName?: string;
 }
 
 /**
@@ -56,6 +59,11 @@ export function serviceAuth(
 
   // Extract source service from header if provided
   req.sourceService = req.headers["x-source-service"] as string;
+
+  // Extract optional tracking headers (injected by workflow-service)
+  req.campaignId = req.headers["x-campaign-id"] as string | undefined;
+  req.brandId = req.headers["x-brand-id"] as string | undefined;
+  req.workflowName = req.headers["x-workflow-name"] as string | undefined;
 
   next();
 }
