@@ -2,6 +2,7 @@ import { Router } from "express";
 import { mapUrl, MapOptions } from "../lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
+import { authorizeCredits, FIRECRAWL_CREDIT_ESTIMATE_CENTS } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { MapRequestSchema } from "../schemas.js";
 
@@ -68,6 +69,28 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         return res.status(status).json({ error: message });
       }
       throw err;
+    }
+
+    // Authorize credits with billing-service (platform keys only)
+    if (keySource === "platform") {
+      try {
+        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName };
+        const auth = await authorizeCredits(
+          FIRECRAWL_CREDIT_ESTIMATE_CENTS,
+          "firecrawl-map-credit",
+          billingIdentity
+        );
+        if (!auth.sufficient) {
+          return res.status(402).json({
+            error: "Insufficient credits",
+            balance_cents: auth.balance_cents,
+            required_cents: FIRECRAWL_CREDIT_ESTIMATE_CENTS,
+          });
+        }
+      } catch (err) {
+        console.error("Billing authorization failed:", err);
+        return res.status(502).json({ error: "Billing authorization unavailable" });
+      }
     }
 
     // Create run in RunsService

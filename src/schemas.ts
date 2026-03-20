@@ -91,6 +91,14 @@ const ScrapeErrorResponseSchema = z
   })
   .openapi("ScrapeErrorResponse");
 
+const InsufficientCreditsResponseSchema = z
+  .object({
+    error: z.string(),
+    balance_cents: z.number().nullable(),
+    required_cents: z.number(),
+  })
+  .openapi("InsufficientCreditsResponse");
+
 const ScrapeByUrlResponseSchema = z
   .object({
     cached: z.literal(true),
@@ -211,6 +219,10 @@ registry.registerPath({
       content: { "application/json": { schema: ErrorResponseSchema } },
     },
     401: { description: "Unauthorized" },
+    402: {
+      description: "Insufficient credits (platform key only)",
+      content: { "application/json": { schema: InsufficientCreditsResponseSchema } },
+    },
     500: {
       description: "Scrape failed",
       content: { "application/json": { schema: ScrapeErrorResponseSchema } },
@@ -288,6 +300,10 @@ registry.registerPath({
       content: { "application/json": { schema: ErrorResponseSchema } },
     },
     401: { description: "Unauthorized" },
+    402: {
+      description: "Insufficient credits (platform key only)",
+      content: { "application/json": { schema: InsufficientCreditsResponseSchema } },
+    },
     500: {
       description: "Map failed",
       content: { "application/json": { schema: MapErrorResponseSchema } },

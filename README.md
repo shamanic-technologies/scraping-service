@@ -42,7 +42,7 @@ Optional tracking headers (injected automatically by workflow-service):
 }
 ```
 
-Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`.
+Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`. Returns `402` with `{ error, balance_cents, required_cents }` when the org has insufficient credits (platform key only; BYOK skips billing check).
 
 ### POST /map
 
@@ -60,7 +60,7 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`.
 }
 ```
 
-Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Identity (`orgId`, `userId`) is provided via required `X-Org-Id` and `X-User-Id` headers.
+Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Returns `402` when insufficient credits (platform key only). Identity (`orgId`, `userId`) is provided via required `X-Org-Id` and `X-User-Id` headers.
 
 ## Setup
 
@@ -80,6 +80,8 @@ npm run dev
 | `KEY_SERVICE_API_KEY` | API key for key-service |
 | `RUNS_SERVICE_URL` | RunsService base URL (default: `https://runs.mcpfactory.org`) |
 | `RUNS_SERVICE_API_KEY` | API key for RunsService |
+| `BILLING_SERVICE_URL` | Billing-service base URL for credit authorization |
+| `BILLING_SERVICE_API_KEY` | API key for billing-service |
 | `PORT` | Server port (default: 3010) |
 
 ## Scripts
