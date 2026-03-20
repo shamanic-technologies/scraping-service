@@ -1,11 +1,14 @@
 import { IdentityContext } from "./runs-client.js";
 
-// Estimated cost per Firecrawl credit in USD cents
-export const FIRECRAWL_CREDIT_ESTIMATE_CENTS = 1;
+export interface AuthorizeCostItem {
+  costName: string;
+  quantity: number;
+}
 
 export interface AuthorizeResult {
   sufficient: boolean;
   balance_cents: number | null;
+  required_cents: number | null;
   billing_mode: string;
 }
 
@@ -24,9 +27,12 @@ function getBillingApiKey(): string {
 /**
  * Request credit authorization from billing-service before executing a paid platform operation.
  * Only call this when costSource is "platform" — BYOK (costSource: "org") skips authorization.
+ *
+ * Send costName + quantity (the same you use with addCosts via runs-service).
+ * billing-service resolves the unit price internally.
  */
 export async function authorizeCredits(
-  requiredCents: number,
+  items: AuthorizeCostItem[],
   description: string,
   identity: IdentityContext
 ): Promise<AuthorizeResult> {
@@ -47,10 +53,7 @@ export async function authorizeCredits(
   const response = await fetch(url, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      required_cents: requiredCents,
-      description,
-    }),
+    body: JSON.stringify({ items, description }),
   });
 
   if (!response.ok) {
