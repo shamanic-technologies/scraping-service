@@ -173,6 +173,26 @@
           "result"
         ]
       },
+      "InsufficientCreditsResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "balance_cents": {
+            "type": "number",
+            "nullable": true
+          },
+          "required_cents": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "error",
+          "balance_cents",
+          "required_cents"
+        ]
+      },
       "ScrapeErrorResponse": {
         "type": "object",
         "properties": {
@@ -470,6 +490,16 @@
           "401": {
             "description": "Unauthorized"
           },
+          "402": {
+            "description": "Insufficient credits (platform key only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsufficientCreditsResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Scrape failed",
             "content": {
@@ -632,6 +662,16 @@
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "402": {
+            "description": "Insufficient credits (platform key only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsufficientCreditsResponse"
+                }
+              }
+            }
           },
           "500": {
             "description": "Map failed",
