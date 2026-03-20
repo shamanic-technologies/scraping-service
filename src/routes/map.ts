@@ -2,7 +2,7 @@ import { Router } from "express";
 import { mapUrl, MapOptions } from "../lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
-import { authorizeCredits, FIRECRAWL_CREDIT_ESTIMATE_CENTS } from "../lib/billing-client.js";
+import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { MapRequestSchema } from "../schemas.js";
 
@@ -76,7 +76,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       try {
         const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName };
         const auth = await authorizeCredits(
-          FIRECRAWL_CREDIT_ESTIMATE_CENTS,
+          [{ costName: "firecrawl-map-credit", quantity: 1 }],
           "firecrawl-map-credit",
           billingIdentity
         );
@@ -84,7 +84,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
           return res.status(402).json({
             error: "Insufficient credits",
             balance_cents: auth.balance_cents,
-            required_cents: FIRECRAWL_CREDIT_ESTIMATE_CENTS,
+            required_cents: auth.required_cents,
           });
         }
       } catch (err) {

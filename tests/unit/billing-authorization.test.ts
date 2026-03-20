@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockAuthorizeCredits = vi.fn();
 vi.mock("../../src/lib/billing-client.js", () => ({
   authorizeCredits: (...args: any[]) => mockAuthorizeCredits(...args),
-  FIRECRAWL_CREDIT_ESTIMATE_CENTS: 1,
 }));
 
 // Mock key-client — default to platform key to trigger billing check
@@ -92,8 +91,8 @@ describe("Billing authorization", () => {
     // Default: platform key
     mockResolveKey.mockResolvedValue({ provider: "firecrawl", key: "test-key", keySource: "platform" });
 
-    // Default: sufficient credits
-    mockAuthorizeCredits.mockResolvedValue({ sufficient: true, balance_cents: 500, billing_mode: "payg" });
+    // Default: sufficient credits (billing-service resolves price, returns required_cents)
+    mockAuthorizeCredits.mockResolvedValue({ sufficient: true, balance_cents: 500, required_cents: 3, billing_mode: "payg" });
 
     // Setup DB mock returns for scrape
     let callCount = 0;
@@ -112,7 +111,7 @@ describe("Billing authorization", () => {
   });
 
   describe("POST /scrape", () => {
-    it("should call authorizeCredits when keySource is platform", async () => {
+    it("should call authorizeCredits with items array when keySource is platform", async () => {
       const app = createApp(scrapeRoutes);
 
       const res = await request(app)
@@ -121,7 +120,7 @@ describe("Billing authorization", () => {
 
       expect(res.status).toBe(200);
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        1,
+        [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
         "firecrawl-scrape-credit",
         expect.objectContaining({
           orgId: "org_test",
@@ -131,8 +130,8 @@ describe("Billing authorization", () => {
       );
     });
 
-    it("should return 402 when billing returns insufficient", async () => {
-      mockAuthorizeCredits.mockResolvedValue({ sufficient: false, balance_cents: 0, billing_mode: "trial" });
+    it("should return 402 with required_cents from billing-service when insufficient", async () => {
+      mockAuthorizeCredits.mockResolvedValue({ sufficient: false, balance_cents: 0, required_cents: 3, billing_mode: "trial" });
 
       const app = createApp(scrapeRoutes);
 
@@ -143,8 +142,7 @@ describe("Billing authorization", () => {
       expect(res.status).toBe(402);
       expect(res.body.error).toBe("Insufficient credits");
       expect(res.body.balance_cents).toBe(0);
-      expect(res.body.required_cents).toBe(1);
-      // Should NOT proceed to create a run or scrape
+      expect(res.body.required_cents).toBe(3);
       expect(mockCreateRun).not.toHaveBeenCalled();
     });
 
@@ -186,7 +184,7 @@ describe("Billing authorization", () => {
         .send({ url: "https://example.com" });
 
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        1,
+        [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
         "firecrawl-scrape-credit",
         expect.objectContaining({
           campaignId: "camp_1",
@@ -198,7 +196,7 @@ describe("Billing authorization", () => {
   });
 
   describe("POST /map", () => {
-    it("should call authorizeCredits when keySource is platform", async () => {
+    it("should call authorizeCredits with items array when keySource is platform", async () => {
       const app = createApp(mapRoutes);
 
       const res = await request(app)
@@ -207,7 +205,7 @@ describe("Billing authorization", () => {
 
       expect(res.status).toBe(200);
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        1,
+        [{ costName: "firecrawl-map-credit", quantity: 1 }],
         "firecrawl-map-credit",
         expect.objectContaining({
           orgId: "org_test",
@@ -217,7 +215,7 @@ describe("Billing authorization", () => {
     });
 
     it("should return 402 when billing returns insufficient", async () => {
-      mockAuthorizeCredits.mockResolvedValue({ sufficient: false, balance_cents: 0, billing_mode: "trial" });
+      mockAuthorizeCredits.mockResolvedValue({ sufficient: false, balance_cents: 0, required_cents: 3, billing_mode: "trial" });
 
       const app = createApp(mapRoutes);
 
@@ -227,6 +225,7 @@ describe("Billing authorization", () => {
 
       expect(res.status).toBe(402);
       expect(res.body.error).toBe("Insufficient credits");
+      expect(res.body.required_cents).toBe(3);
       expect(mockCreateRun).not.toHaveBeenCalled();
     });
 

@@ -5,7 +5,7 @@ import { scrapeRequests, scrapeResults, scrapeCache } from "../db/schema.js";
 import { scrapeUrl, normalizeUrl } from "../lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
-import { authorizeCredits, FIRECRAWL_CREDIT_ESTIMATE_CENTS } from "../lib/billing-client.js";
+import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema } from "../schemas.js";
 
@@ -108,7 +108,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       try {
         const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName };
         const auth = await authorizeCredits(
-          FIRECRAWL_CREDIT_ESTIMATE_CENTS,
+          [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
           "firecrawl-scrape-credit",
           billingIdentity
         );
@@ -116,7 +116,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           return res.status(402).json({
             error: "Insufficient credits",
             balance_cents: auth.balance_cents,
-            required_cents: FIRECRAWL_CREDIT_ESTIMATE_CENTS,
+            required_cents: auth.required_cents,
           });
         }
       } catch (err) {

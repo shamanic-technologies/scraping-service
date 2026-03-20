@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { authorizeCredits, FIRECRAWL_CREDIT_ESTIMATE_CENTS } from "../../src/lib/billing-client.js";
+import { authorizeCredits } from "../../src/lib/billing-client.js";
 
 describe("billing-client", () => {
   beforeEach(() => {
@@ -13,18 +13,15 @@ describe("billing-client", () => {
     vi.unstubAllGlobals();
   });
 
-  it("should export a positive credit estimate constant", () => {
-    expect(FIRECRAWL_CREDIT_ESTIMATE_CENTS).toBeGreaterThan(0);
-  });
-
-  it("should call billing-service /v1/credits/authorize with correct payload", async () => {
-    const mockResponse = { sufficient: true, balance_cents: 500, billing_mode: "payg" };
+  it("should call billing-service with items array instead of required_cents", async () => {
+    const mockResponse = { sufficient: true, balance_cents: 500, required_cents: 1, billing_mode: "payg" };
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     } as Response);
 
-    const result = await authorizeCredits(1, "firecrawl-scrape-credit", {
+    const items = [{ costName: "firecrawl-scrape-credit", quantity: 1 }];
+    const result = await authorizeCredits(items, "firecrawl-scrape-credit", {
       orgId: "org_1",
       userId: "user_1",
       runId: "run_1",
@@ -47,39 +44,45 @@ describe("billing-client", () => {
           "x-brand-id": "brand_1",
           "x-workflow-name": "wf_1",
         }),
-        body: JSON.stringify({ required_cents: 1, description: "firecrawl-scrape-credit" }),
+        body: JSON.stringify({
+          items: [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
+          description: "firecrawl-scrape-credit",
+        }),
       })
     );
 
     expect(result).toEqual(mockResponse);
   });
 
-  it("should return sufficient: false when balance is insufficient", async () => {
-    const mockResponse = { sufficient: false, balance_cents: 0, billing_mode: "trial" };
+  it("should return sufficient: false with required_cents from billing-service", async () => {
+    const mockResponse = { sufficient: false, balance_cents: 0, required_cents: 3, billing_mode: "trial" };
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     } as Response);
 
-    const result = await authorizeCredits(1, "firecrawl-scrape-credit", {
-      orgId: "org_1",
-      userId: "user_1",
-    });
+    const result = await authorizeCredits(
+      [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
+      "firecrawl-scrape-credit",
+      { orgId: "org_1", userId: "user_1" }
+    );
 
     expect(result.sufficient).toBe(false);
     expect(result.balance_cents).toBe(0);
+    expect(result.required_cents).toBe(3);
   });
 
   it("should omit optional headers when identity fields are undefined", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ sufficient: true, balance_cents: 100, billing_mode: "payg" }),
+      json: () => Promise.resolve({ sufficient: true, balance_cents: 100, required_cents: 1, billing_mode: "payg" }),
     } as Response);
 
-    await authorizeCredits(1, "firecrawl-map-credit", {
-      orgId: "org_1",
-      userId: "user_1",
-    });
+    await authorizeCredits(
+      [{ costName: "firecrawl-map-credit", quantity: 1 }],
+      "firecrawl-map-credit",
+      { orgId: "org_1", userId: "user_1" }
+    );
 
     const callHeaders = vi.mocked(fetch).mock.calls[0][1]!.headers as Record<string, string>;
     expect(callHeaders["x-run-id"]).toBeUndefined();
@@ -96,7 +99,11 @@ describe("billing-client", () => {
     } as Response);
 
     await expect(
-      authorizeCredits(1, "firecrawl-scrape-credit", { orgId: "org_1", userId: "user_1" })
+      authorizeCredits(
+        [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
+        "firecrawl-scrape-credit",
+        { orgId: "org_1", userId: "user_1" }
+      )
     ).rejects.toThrow("Billing-service authorize failed: 500 - Internal server error");
   });
 
@@ -104,7 +111,7 @@ describe("billing-client", () => {
     vi.stubEnv("BILLING_SERVICE_URL", "");
 
     await expect(
-      authorizeCredits(1, "test", { orgId: "org_1", userId: "user_1" })
+      authorizeCredits([{ costName: "test", quantity: 1 }], "test", { orgId: "org_1", userId: "user_1" })
     ).rejects.toThrow("BILLING_SERVICE_URL is not set");
   });
 
@@ -112,7 +119,7 @@ describe("billing-client", () => {
     vi.stubEnv("BILLING_SERVICE_API_KEY", "");
 
     await expect(
-      authorizeCredits(1, "test", { orgId: "org_1", userId: "user_1" })
+      authorizeCredits([{ costName: "test", quantity: 1 }], "test", { orgId: "org_1", userId: "user_1" })
     ).rejects.toThrow("BILLING_SERVICE_API_KEY is not set");
   });
 });
