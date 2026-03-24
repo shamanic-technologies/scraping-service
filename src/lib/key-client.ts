@@ -40,6 +40,7 @@ export interface ResolveKeyParams {
   campaignId?: string;
   brandId?: string;
   workflowName?: string;
+  featureSlug?: string;
   caller: CallerContext;
 }
 
@@ -53,7 +54,7 @@ export interface ResolveKeyParams {
  * and returns { provider, key, keySource } where keySource is "org" | "platform".
  */
 export async function resolveKey(params: ResolveKeyParams): Promise<DecryptedKey> {
-  const { provider, orgId, userId, runId, campaignId, brandId, workflowName, caller } = params;
+  const { provider, orgId, userId, runId, campaignId, brandId, workflowName, featureSlug, caller } = params;
   const base = getKeyServiceUrl();
 
   if (!orgId) throw new Error("orgId is required for key resolution");
@@ -81,6 +82,9 @@ export async function resolveKey(params: ResolveKeyParams): Promise<DecryptedKey
   }
   if (workflowName) {
     headers["x-workflow-name"] = workflowName;
+  }
+  if (featureSlug) {
+    headers["x-feature-slug"] = featureSlug;
   }
 
   const response = await fetch(url, {

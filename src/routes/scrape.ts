@@ -37,6 +37,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       brandId,
       campaignId,
       workflowName,
+      featureSlug,
     } = parsed.data;
 
     const orgId = (req as AuthenticatedRequest).orgId!;
@@ -47,6 +48,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     const effectiveCampaignId = (req as AuthenticatedRequest).campaignId || campaignId;
     const effectiveBrandId = (req as AuthenticatedRequest).brandId || brandId;
     const effectiveWorkflowName = (req as AuthenticatedRequest).workflowName || workflowName;
+    const effectiveFeatureSlug = (req as AuthenticatedRequest).featureSlug || featureSlug;
 
     const normalized = normalizeUrl(url);
 
@@ -87,6 +89,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         campaignId: effectiveCampaignId,
         brandId: effectiveBrandId,
         workflowName: effectiveWorkflowName,
+        featureSlug: effectiveFeatureSlug,
         caller: { method: "POST", path: "/scrape" },
       });
       firecrawlApiKey = decrypted.key;
@@ -106,7 +109,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // Authorize credits with billing-service (platform keys only)
     if (keySource === "platform") {
       try {
-        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName };
+        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName, featureSlug: effectiveFeatureSlug };
         const auth = await authorizeCredits(
           [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
           "firecrawl-scrape-credit",
@@ -130,8 +133,8 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     let runId: string | undefined;
     try {
       const run = await createRun(
-        { taskName: "scrape", brandId: effectiveBrandId, campaignId: effectiveCampaignId, workflowName: effectiveWorkflowName },
-        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName }
+        { taskName: "scrape", brandId: effectiveBrandId, campaignId: effectiveCampaignId, workflowName: effectiveWorkflowName, featureSlug: effectiveFeatureSlug },
+        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName, featureSlug: effectiveFeatureSlug }
       );
       runId = run.id;
     } catch (err) {
@@ -149,6 +152,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         campaignId: effectiveCampaignId,
         brandId: effectiveBrandId,
         workflowName: effectiveWorkflowName,
+        featureSlug: effectiveFeatureSlug,
         url,
         options: options as any,
         status: "processing",
@@ -170,7 +174,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         .where(eq(scrapeRequests.id, request.id));
 
       if (runId) {
-        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName }).catch((err) =>
+        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName, featureSlug: effectiveFeatureSlug }).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -253,7 +257,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
-      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName };
+      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowName: effectiveWorkflowName, featureSlug: effectiveFeatureSlug };
       Promise.all([
         addCosts(runId, [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: keySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),

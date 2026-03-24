@@ -49,6 +49,7 @@ export async function authorizeCredits(
   if (identity.campaignId) headers["x-campaign-id"] = identity.campaignId;
   if (identity.brandId) headers["x-brand-id"] = identity.brandId;
   if (identity.workflowName) headers["x-workflow-name"] = identity.workflowName;
+  if (identity.featureSlug) headers["x-feature-slug"] = identity.featureSlug;
 
   const response = await fetch(url, {
     method: "POST",

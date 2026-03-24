@@ -48,6 +48,7 @@ export const ScrapeRequestSchema = z
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
     workflowName: z.string().optional(),
+    featureSlug: z.string().optional(),
   })
   .openapi("ScrapeRequest");
 
@@ -120,6 +121,7 @@ export const MapRequestSchema = z
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
     workflowName: z.string().optional(),
+    featureSlug: z.string().optional(),
   })
   .openapi("MapRequest");
 
