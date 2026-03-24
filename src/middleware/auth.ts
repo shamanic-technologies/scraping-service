@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
   campaignId?: string;
   brandId?: string;
   workflowName?: string;
+  featureSlug?: string;
 }
 
 /**
@@ -64,6 +65,7 @@ export function serviceAuth(
   req.campaignId = req.headers["x-campaign-id"] as string | undefined;
   req.brandId = req.headers["x-brand-id"] as string | undefined;
   req.workflowName = req.headers["x-workflow-name"] as string | undefined;
+  req.featureSlug = req.headers["x-feature-slug"] as string | undefined;
 
   next();
 }

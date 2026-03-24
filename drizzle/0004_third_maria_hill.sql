@@ -1,0 +1,1 @@
+ALTER TABLE "scrape_requests" ADD COLUMN "feature_slug" text;

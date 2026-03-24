@@ -35,6 +35,7 @@ export const scrapeRequests = pgTable(
     campaignId: text("campaign_id"),
     brandId: text("brand_id"),
     workflowName: text("workflow_name"),
+    featureSlug: text("feature_slug"),
 
     // Status tracking
     status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'

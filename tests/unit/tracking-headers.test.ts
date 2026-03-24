@@ -77,6 +77,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: req.campaignId,
           brandId: req.brandId,
           workflowName: req.workflowName,
+          featureSlug: req.featureSlug,
         });
       });
     });
@@ -91,12 +92,14 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "camp_123")
         .set("X-Brand-Id", "brand_456")
         .set("X-Workflow-Name", "gtm-outbound")
+        .set("X-Feature-Slug", "feature_789")
         .send({});
 
       expect(response.status).toBe(200);
       expect(response.body.campaignId).toBe("camp_123");
       expect(response.body.brandId).toBe("brand_456");
       expect(response.body.workflowName).toBe("gtm-outbound");
+      expect(response.body.featureSlug).toBe("feature_789");
     });
 
     it("should not break when tracking headers are absent", async () => {
@@ -112,6 +115,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
       expect(response.body.campaignId).toBeUndefined();
       expect(response.body.brandId).toBeUndefined();
       expect(response.body.workflowName).toBeUndefined();
+      expect(response.body.featureSlug).toBeUndefined();
     });
   });
 
@@ -130,6 +134,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         req.campaignId = req.headers["x-campaign-id"] || undefined;
         req.brandId = req.headers["x-brand-id"] || undefined;
         req.workflowName = req.headers["x-workflow-name"] || undefined;
+        req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
       });
       app.use(mapRoutes);
@@ -141,6 +146,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "camp_abc")
         .set("X-Brand-Id", "brand_def")
         .set("X-Workflow-Name", "research-flow")
+        .set("X-Feature-Slug", "slug_abc")
         .send({ url: "https://example.com" });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
@@ -148,11 +154,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "camp_abc",
           brandId: "brand_def",
           workflowName: "research-flow",
+          featureSlug: "slug_abc",
         }),
         expect.objectContaining({
           campaignId: "camp_abc",
           brandId: "brand_def",
           workflowName: "research-flow",
+          featureSlug: "slug_abc",
         })
       );
     });
@@ -163,6 +171,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "camp_key")
         .set("X-Brand-Id", "brand_key")
         .set("X-Workflow-Name", "key-flow")
+        .set("X-Feature-Slug", "slug_key")
         .send({ url: "https://example.com" });
 
       expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
@@ -170,6 +179,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "camp_key",
           brandId: "brand_key",
           workflowName: "key-flow",
+          featureSlug: "slug_key",
         })
       );
     });
@@ -184,11 +194,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: undefined,
           brandId: undefined,
           workflowName: undefined,
+          featureSlug: undefined,
         }),
         expect.objectContaining({
           campaignId: undefined,
           brandId: undefined,
           workflowName: undefined,
+          featureSlug: undefined,
         })
       );
     });
@@ -209,6 +221,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         req.campaignId = req.headers["x-campaign-id"] || undefined;
         req.brandId = req.headers["x-brand-id"] || undefined;
         req.workflowName = req.headers["x-workflow-name"] || undefined;
+        req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
       });
       app.use(mapRoutes);
@@ -220,11 +233,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "header-campaign")
         .set("X-Brand-Id", "header-brand")
         .set("X-Workflow-Name", "header-workflow")
+        .set("X-Feature-Slug", "header-slug")
         .send({
           url: "https://example.com",
           campaignId: "body-campaign",
           brandId: "body-brand",
           workflowName: "body-workflow",
+          featureSlug: "body-slug",
         });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
@@ -232,6 +247,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "header-campaign",
           brandId: "header-brand",
           workflowName: "header-workflow",
+          featureSlug: "header-slug",
         }),
         expect.any(Object)
       );
@@ -245,6 +261,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "body-campaign",
           brandId: "body-brand",
           workflowName: "body-workflow",
+          featureSlug: "body-slug",
         });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
@@ -252,6 +269,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "body-campaign",
           brandId: "body-brand",
           workflowName: "body-workflow",
+          featureSlug: "body-slug",
         }),
         expect.any(Object)
       );
@@ -273,6 +291,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         req.campaignId = req.headers["x-campaign-id"] || undefined;
         req.brandId = req.headers["x-brand-id"] || undefined;
         req.workflowName = req.headers["x-workflow-name"] || undefined;
+        req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
       });
       app.use(scrapeRoutes);
@@ -304,6 +323,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "camp_scrape")
         .set("X-Brand-Id", "brand_scrape")
         .set("X-Workflow-Name", "scrape-flow")
+        .set("X-Feature-Slug", "slug_scrape")
         .send({ url: "https://example.com" });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
@@ -311,11 +331,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "camp_scrape",
           brandId: "brand_scrape",
           workflowName: "scrape-flow",
+          featureSlug: "slug_scrape",
         }),
         expect.objectContaining({
           campaignId: "camp_scrape",
           brandId: "brand_scrape",
           workflowName: "scrape-flow",
+          featureSlug: "slug_scrape",
         })
       );
     });
@@ -326,6 +348,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "camp_db")
         .set("X-Brand-Id", "brand_db")
         .set("X-Workflow-Name", "db-flow")
+        .set("X-Feature-Slug", "slug_db")
         .send({ url: "https://example.com" });
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -333,6 +356,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "camp_db",
           brandId: "brand_db",
           workflowName: "db-flow",
+          featureSlug: "slug_db",
         })
       );
     });
@@ -343,6 +367,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Campaign-Id", "camp_key_s")
         .set("X-Brand-Id", "brand_key_s")
         .set("X-Workflow-Name", "key-flow-s")
+        .set("X-Feature-Slug", "slug_key_s")
         .send({ url: "https://example.com" });
 
       expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
@@ -350,6 +375,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           campaignId: "camp_key_s",
           brandId: "brand_key_s",
           workflowName: "key-flow-s",
+          featureSlug: "slug_key_s",
         })
       );
     });

@@ -271,6 +271,9 @@
           },
           "workflowName": {
             "type": "string"
+          },
+          "featureSlug": {
+            "type": "string"
           }
         },
         "required": [
@@ -377,6 +380,9 @@
             "type": "string"
           },
           "workflowName": {
+            "type": "string"
+          },
+          "featureSlug": {
             "type": "string"
           }
         },
