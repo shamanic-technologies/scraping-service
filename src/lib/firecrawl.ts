@@ -80,71 +80,126 @@ export function normalizeUrl(url: string): string {
   }
 }
 
-// --- Extract (LLM extraction) ---
+// --- Extract (LLM extraction via dedicated /v1/extract API) ---
 
 export interface ExtractResult {
   success: boolean;
   authors?: { firstName: string; lastName: string }[];
   publishedAt?: string | null;
-  markdown?: string;
+  tokensUsed?: number;
   error?: string;
 }
 
+const EXTRACT_SCHEMA = {
+  type: "object",
+  properties: {
+    authors: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          firstName: { type: "string" },
+          lastName: { type: "string" },
+        },
+        required: ["firstName", "lastName"],
+      },
+    },
+    publishedAt: { type: ["string", "null"] },
+  },
+  required: ["authors", "publishedAt"],
+};
+
+const EXTRACT_PROMPT =
+  "Extract the article author(s) and the publication date. " +
+  "For authors, return only real human names (not organization names like 'Reuters Staff' or 'AP News'). " +
+  "Split each name into firstName and lastName. " +
+  "For publishedAt, return an ISO 8601 date string, or null if not found.";
+
+const FIRECRAWL_API_URL = "https://api.firecrawl.dev";
+const EXTRACT_POLL_INTERVAL_MS = 1000;
+const EXTRACT_MAX_POLLS = 60;
+
 /**
- * Scrape a URL and extract structured article metadata (authors, publishedAt)
- * using Firecrawl's LLM Extract feature.
+ * Extract structured article metadata (authors, publishedAt) from a URL
+ * using Firecrawl's dedicated /v1/extract API.
+ *
+ * Uses raw HTTP instead of the SDK because the SDK drops `tokensUsed`
+ * from the response, which we need for cost tracking.
  */
 export async function extractUrl(
   url: string,
   apiKey: string
 ): Promise<ExtractResult> {
-  const firecrawl = new FirecrawlApp({ apiKey });
-
   try {
-    const result = await firecrawl.scrapeUrl(url, {
-      formats: ["extract", "markdown"],
-      extract: {
-        prompt:
-          "Extract the article author(s) and the publication date. " +
-          "For authors, return only real human names (not organization names like 'Reuters Staff' or 'AP News'). " +
-          "Split each name into firstName and lastName. " +
-          "For publishedAt, return an ISO 8601 date string, or null if not found.",
-        schema: {
-          type: "object",
-          properties: {
-            authors: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  firstName: { type: "string" },
-                  lastName: { type: "string" },
-                },
-                required: ["firstName", "lastName"],
-              },
-            },
-            publishedAt: { type: ["string", "null"] },
-          },
-          required: ["authors", "publishedAt"],
-        } as any,
+    // Start extract job
+    const startRes = await fetch(`${FIRECRAWL_API_URL}/v1/extract`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
+      body: JSON.stringify({
+        urls: [url],
+        prompt: EXTRACT_PROMPT,
+        schema: EXTRACT_SCHEMA,
+      }),
     });
 
-    if (!result.success) {
+    if (!startRes.ok) {
+      const errBody = await startRes.text();
       return {
         success: false,
-        error: (result as any).error || "Extract failed",
+        error: `Firecrawl extract start failed (${startRes.status}): ${errBody}`,
       };
     }
 
-    const extracted = (result as any).extract || {};
+    const startData = (await startRes.json()) as { success: boolean; id: string; error?: string };
+    if (!startData.success || !startData.id) {
+      return {
+        success: false,
+        error: startData.error || "Firecrawl extract failed to start",
+      };
+    }
 
-    return {
-      success: true,
-      authors: extracted.authors || [],
-      publishedAt: extracted.publishedAt || null,
-      markdown: result.markdown,
-    };
+    // Poll for completion
+    const jobId = startData.id;
+    for (let i = 0; i < EXTRACT_MAX_POLLS; i++) {
+      await new Promise((r) => setTimeout(r, EXTRACT_POLL_INTERVAL_MS));
+
+      const statusRes = await fetch(`${FIRECRAWL_API_URL}/v1/extract/${jobId}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!statusRes.ok) {
+        continue; // Retry on transient errors
+      }
+
+      const status = (await statusRes.json()) as {
+        status: string;
+        success?: boolean;
+        data?: { authors?: { firstName: string; lastName: string }[]; publishedAt?: string | null };
+        tokensUsed?: number;
+        error?: string;
+      };
+
+      if (status.status === "completed") {
+        if (!status.success) {
+          return { success: false, error: status.error || "Extract failed" };
+        }
+        return {
+          success: true,
+          authors: status.data?.authors || [],
+          publishedAt: status.data?.publishedAt || null,
+          tokensUsed: status.tokensUsed,
+        };
+      }
+
+      if (status.status === "failed" || status.status === "cancelled") {
+        return { success: false, error: status.error || `Extract ${status.status}` };
+      }
+    }
+
+    return { success: false, error: "Extract timed out" };
   } catch (error: any) {
     console.error("Firecrawl extract error:", error);
     return {

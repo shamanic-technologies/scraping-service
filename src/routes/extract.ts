@@ -64,7 +64,8 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       throw err;
     }
 
-    // Authorize credits (platform keys only) — 1 extract credit per URL
+    // Authorize credits (platform keys only) — estimate 500 tokens per URL
+    const ESTIMATED_TOKENS_PER_URL = 500;
     if (keySource === "platform") {
       try {
         const billingIdentity = {
@@ -79,11 +80,11 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         const auth = await authorizeCredits(
           [
             {
-              costName: "firecrawl-extract-credit",
-              quantity: urls.length,
+              costName: "firecrawl-extract-token",
+              quantity: urls.length * ESTIMATED_TOKENS_PER_URL,
             },
           ],
-          "firecrawl-extract-credit",
+          "firecrawl-extract-token",
           billingIdentity
         );
         if (!auth.sufficient) {
@@ -128,30 +129,37 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
     }
 
     // Extract from all URLs concurrently
-    const results = await Promise.all(
+    const extractResults = await Promise.all(
       urls.map(async (url) => {
         const result = await extractUrl(url, firecrawlApiKey);
-        if (!result.success) {
-          return {
-            url,
-            success: false as const,
-            error: result.error || "Extract failed",
-          };
-        }
-        return {
-          url,
-          success: true as const,
-          authors: result.authors || [],
-          publishedAt: result.publishedAt || null,
-          rawMarkdown: result.markdown || null,
-        };
+        return { url, result };
       })
     );
 
+    const results = extractResults.map(({ url, result }) => {
+      if (!result.success) {
+        return {
+          url,
+          success: false as const,
+          error: result.error || "Extract failed",
+        };
+      }
+      return {
+        url,
+        success: true as const,
+        authors: result.authors || [],
+        publishedAt: result.publishedAt || null,
+      };
+    });
+
+    const totalTokensUsed = extractResults.reduce(
+      (sum, { result }) => sum + (result.tokensUsed || 0),
+      0
+    );
     const successCount = results.filter((r) => r.success).length;
     const allFailed = successCount === 0;
 
-    // Report costs and complete run
+    // Report costs (actual tokens used) and complete run
     if (runId) {
       const runIdentity = {
         orgId,
@@ -162,24 +170,20 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         workflowName: effectiveWorkflowName,
         featureSlug: effectiveFeatureSlug,
       };
+      const costItems = totalTokensUsed > 0
+        ? [{ costName: "firecrawl-extract-token", quantity: totalTokensUsed, costSource: keySource }]
+        : [];
       Promise.all([
-        addCosts(
-          runId,
-          [
-            {
-              costName: "firecrawl-extract-credit",
-              quantity: urls.length,
-              costSource: keySource,
-            },
-          ],
-          runIdentity
-        ),
+        ...(costItems.length > 0
+          ? [addCosts(runId, costItems, runIdentity)]
+          : []),
         updateRunStatus(runId, allFailed ? "failed" : "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
 
     res.json({
       results,
+      tokensUsed: totalTokensUsed,
       runId,
     });
   } catch (error: any) {

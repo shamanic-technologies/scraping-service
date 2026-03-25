@@ -55,6 +55,7 @@ import extractRoutes from "../../src/routes/extract.js";
 import { extractUrl } from "../../src/lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../../src/lib/key-client.js";
 import { authorizeCredits } from "../../src/lib/billing-client.js";
+import { addCosts } from "../../src/lib/runs-client.js";
 
 describe("/extract endpoint", () => {
   let app: express.Application;
@@ -118,7 +119,7 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [{ firstName: "Sarah", lastName: "Perez" }],
         publishedAt: "2025-11-15T00:00:00Z",
-        markdown: "# Article content",
+        tokensUsed: 307,
       });
 
       const response = await request(app)
@@ -132,8 +133,8 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [{ firstName: "Sarah", lastName: "Perez" }],
         publishedAt: "2025-11-15T00:00:00Z",
-        rawMarkdown: "# Article content",
       });
+      expect(response.body.tokensUsed).toBe(307);
       expect(response.body.runId).toBe("run-123");
     });
 
@@ -143,7 +144,7 @@ describe("/extract endpoint", () => {
           success: true,
           authors: [{ firstName: "Jane", lastName: "Doe" }],
           publishedAt: "2025-10-01T00:00:00Z",
-          markdown: "# Article 1",
+          tokensUsed: 250,
         })
         .mockResolvedValueOnce({
           success: true,
@@ -152,7 +153,7 @@ describe("/extract endpoint", () => {
             { firstName: "Alice", lastName: "Johnson" },
           ],
           publishedAt: "2025-09-20T00:00:00Z",
-          markdown: "# Article 2",
+          tokensUsed: 310,
         });
 
       const response = await request(app)
@@ -173,6 +174,7 @@ describe("/extract endpoint", () => {
         { firstName: "John", lastName: "Smith" },
         { firstName: "Alice", lastName: "Johnson" },
       ]);
+      expect(response.body.tokensUsed).toBe(560);
     });
 
     it("should return per-URL errors without failing the whole batch", async () => {
@@ -181,7 +183,7 @@ describe("/extract endpoint", () => {
           success: true,
           authors: [{ firstName: "Jane", lastName: "Doe" }],
           publishedAt: "2025-10-01T00:00:00Z",
-          markdown: "# Works",
+          tokensUsed: 250,
         })
         .mockResolvedValueOnce({
           success: false,
@@ -201,6 +203,7 @@ describe("/extract endpoint", () => {
       expect(response.body.results[0].success).toBe(true);
       expect(response.body.results[1].success).toBe(false);
       expect(response.body.results[1].error).toBe("Page not found");
+      expect(response.body.tokensUsed).toBe(250);
     });
 
     it("should return 400 when org has no Firecrawl key", async () => {
@@ -229,7 +232,7 @@ describe("/extract endpoint", () => {
       expect(response.body.error).toContain("retrieve");
     });
 
-    it("should authorize credits for platform keys", async () => {
+    it("should authorize credits for platform keys using estimated tokens", async () => {
       vi.mocked(resolveKey).mockResolvedValueOnce({
         provider: "firecrawl",
         key: "platform-key",
@@ -240,7 +243,7 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [],
         publishedAt: null,
-        markdown: "",
+        tokensUsed: 307,
       });
 
       const response = await request(app)
@@ -248,11 +251,50 @@ describe("/extract endpoint", () => {
         .send({ urls: ["https://example.com/article"] });
 
       expect(response.status).toBe(200);
+      // Pre-auth uses estimated 500 tokens per URL
       expect(authorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "firecrawl-extract-credit", quantity: 1 }],
-        "firecrawl-extract-credit",
+        [{ costName: "firecrawl-extract-token", quantity: 500 }],
+        "firecrawl-extract-token",
         expect.objectContaining({ orgId: "org_test", userId: "user_test" })
       );
+    });
+
+    it("should report actual tokensUsed in addCosts", async () => {
+      vi.mocked(extractUrl).mockResolvedValueOnce({
+        success: true,
+        authors: [{ firstName: "Sarah", lastName: "Perez" }],
+        publishedAt: "2025-11-15T00:00:00Z",
+        tokensUsed: 307,
+      });
+
+      await request(app)
+        .post("/extract")
+        .send({ urls: ["https://techcrunch.com/2025/article"] });
+
+      // Wait for the fire-and-forget Promise.all
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(addCosts).toHaveBeenCalledWith(
+        "run-123",
+        [{ costName: "firecrawl-extract-token", quantity: 307, costSource: "org" }],
+        expect.objectContaining({ orgId: "org_test", userId: "user_test" })
+      );
+    });
+
+    it("should not report costs when tokensUsed is 0", async () => {
+      vi.mocked(extractUrl).mockResolvedValueOnce({
+        success: false,
+        error: "Page not found",
+      });
+
+      await request(app)
+        .post("/extract")
+        .send({ urls: ["https://example.com/broken"] });
+
+      // Wait for the fire-and-forget Promise.all
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(addCosts).not.toHaveBeenCalled();
     });
 
     it("should return 402 when insufficient credits", async () => {
@@ -283,7 +325,7 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [],
         publishedAt: null,
-        markdown: "",
+        tokensUsed: 200,
       });
 
       const response = await request(app)
@@ -299,7 +341,7 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [{ firstName: "Bob", lastName: "Ross" }],
         publishedAt: null,
-        markdown: "# No date article",
+        tokensUsed: 150,
       });
 
       const response = await request(app)
@@ -310,7 +352,7 @@ describe("/extract endpoint", () => {
       expect(response.body.results[0].publishedAt).toBeNull();
     });
 
-    it("should authorize credits for batch size", async () => {
+    it("should authorize credits for batch size with estimated tokens", async () => {
       vi.mocked(resolveKey).mockResolvedValueOnce({
         provider: "firecrawl",
         key: "platform-key",
@@ -321,7 +363,7 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [],
         publishedAt: null,
-        markdown: "",
+        tokensUsed: 300,
       });
 
       const urls = Array.from(
@@ -331,10 +373,45 @@ describe("/extract endpoint", () => {
 
       await request(app).post("/extract").send({ urls });
 
+      // Pre-auth: 5 URLs × 500 estimated tokens = 2500
       expect(authorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "firecrawl-extract-credit", quantity: 5 }],
-        "firecrawl-extract-credit",
+        [{ costName: "firecrawl-extract-token", quantity: 2500 }],
+        "firecrawl-extract-token",
         expect.any(Object)
+      );
+    });
+
+    it("should sum tokensUsed across all URLs in addCosts", async () => {
+      vi.mocked(extractUrl)
+        .mockResolvedValueOnce({
+          success: true,
+          authors: [],
+          publishedAt: null,
+          tokensUsed: 300,
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          authors: [],
+          publishedAt: null,
+          tokensUsed: 450,
+        });
+
+      await request(app)
+        .post("/extract")
+        .send({
+          urls: [
+            "https://example.com/article-1",
+            "https://example.com/article-2",
+          ],
+        });
+
+      // Wait for the fire-and-forget Promise.all
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(addCosts).toHaveBeenCalledWith(
+        "run-123",
+        [{ costName: "firecrawl-extract-token", quantity: 750, costSource: "org" }],
+        expect.objectContaining({ orgId: "org_test" })
       );
     });
   });

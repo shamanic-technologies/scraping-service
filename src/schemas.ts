@@ -135,7 +135,6 @@ const ExtractItemSuccessSchema = z
     success: z.literal(true),
     authors: z.array(AuthorSchema),
     publishedAt: z.string().nullable(),
-    rawMarkdown: z.string().nullable(),
   })
   .openapi("ExtractItemSuccess");
 
@@ -150,6 +149,7 @@ const ExtractItemErrorSchema = z
 const ExtractResponseSchema = z
   .object({
     results: z.array(z.union([ExtractItemSuccessSchema, ExtractItemErrorSchema])),
+    tokensUsed: z.number(),
     runId: z.string().optional(),
   })
   .openapi("ExtractResponse");
