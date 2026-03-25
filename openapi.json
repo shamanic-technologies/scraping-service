@@ -338,18 +338,13 @@
           "publishedAt": {
             "type": "string",
             "nullable": true
-          },
-          "rawMarkdown": {
-            "type": "string",
-            "nullable": true
           }
         },
         "required": [
           "url",
           "success",
           "authors",
-          "publishedAt",
-          "rawMarkdown"
+          "publishedAt"
         ]
       },
       "ExtractItemError": {
@@ -390,12 +385,16 @@
               ]
             }
           },
+          "tokensUsed": {
+            "type": "number"
+          },
           "runId": {
             "type": "string"
           }
         },
         "required": [
-          "results"
+          "results",
+          "tokensUsed"
         ]
       },
       "ExtractRequest": {

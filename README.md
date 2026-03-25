@@ -94,8 +94,7 @@ Response:
       "authors": [
         { "firstName": "Sarah", "lastName": "Perez" }
       ],
-      "publishedAt": "2025-11-15T00:00:00Z",
-      "rawMarkdown": "..."
+      "publishedAt": "2025-11-15T00:00:00Z"
     },
     {
       "url": "https://wired.com/story/another-article",
@@ -103,11 +102,12 @@ Response:
       "error": "Page not found"
     }
   ],
+  "tokensUsed": 307,
   "runId": "run-uuid"
 }
 ```
 
-Returns `402` when insufficient credits (platform key only; BYOK skips billing). Each URL costs 1 `firecrawl-extract-credit`.
+Returns `402` when insufficient credits (platform key only; BYOK skips billing). Cost tracked as `firecrawl-extract-token` using actual token consumption reported by Firecrawl.
 
 ## Setup
 
