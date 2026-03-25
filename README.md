@@ -27,6 +27,7 @@ Optional tracking headers (injected automatically by workflow-service):
 | `GET` | `/scrape/:id` | Get a scrape result by ID |
 | `GET` | `/scrape/by-url?url=` | Get cached result by URL |
 | `POST` | `/map` | Discover all URLs on a website (max 500) |
+| `POST` | `/extract` | Extract article metadata (authors, date) via LLM |
 
 ### POST /scrape
 
@@ -64,6 +65,49 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`. 
 ```
 
 Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Returns `402` when insufficient credits (platform key only). Identity (`orgId`, `userId`) is provided via required `X-Org-Id` and `X-User-Id` headers.
+
+### POST /extract
+
+Extracts article metadata (authors, publication date) from up to 10 URLs using Firecrawl's LLM Extract. Processes all URLs concurrently.
+
+```json
+{
+  "urls": [
+    "https://techcrunch.com/2025/11/15/some-article",
+    "https://wired.com/story/another-article"
+  ],
+  "brandId": "brand_1",
+  "campaignId": "campaign_2",
+  "workflowName": "journalist-outreach",
+  "featureSlug": "press-outreach"
+}
+```
+
+Response:
+
+```json
+{
+  "results": [
+    {
+      "url": "https://techcrunch.com/2025/11/15/some-article",
+      "success": true,
+      "authors": [
+        { "firstName": "Sarah", "lastName": "Perez" }
+      ],
+      "publishedAt": "2025-11-15T00:00:00Z",
+      "rawMarkdown": "..."
+    },
+    {
+      "url": "https://wired.com/story/another-article",
+      "success": false,
+      "error": "Page not found"
+    }
+  ],
+  "runId": "run-uuid"
+}
+```
+
+Returns `402` when insufficient credits (platform key only; BYOK skips billing). Each URL costs 1 `firecrawl-extract-credit`.
 
 ## Setup
 

@@ -80,6 +80,80 @@ export function normalizeUrl(url: string): string {
   }
 }
 
+// --- Extract (LLM extraction) ---
+
+export interface ExtractResult {
+  success: boolean;
+  authors?: { firstName: string; lastName: string }[];
+  publishedAt?: string | null;
+  markdown?: string;
+  error?: string;
+}
+
+/**
+ * Scrape a URL and extract structured article metadata (authors, publishedAt)
+ * using Firecrawl's LLM Extract feature.
+ */
+export async function extractUrl(
+  url: string,
+  apiKey: string
+): Promise<ExtractResult> {
+  const firecrawl = new FirecrawlApp({ apiKey });
+
+  try {
+    const result = await firecrawl.scrapeUrl(url, {
+      formats: ["extract", "markdown"],
+      extract: {
+        prompt:
+          "Extract the article author(s) and the publication date. " +
+          "For authors, return only real human names (not organization names like 'Reuters Staff' or 'AP News'). " +
+          "Split each name into firstName and lastName. " +
+          "For publishedAt, return an ISO 8601 date string, or null if not found.",
+        schema: {
+          type: "object",
+          properties: {
+            authors: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  firstName: { type: "string" },
+                  lastName: { type: "string" },
+                },
+                required: ["firstName", "lastName"],
+              },
+            },
+            publishedAt: { type: ["string", "null"] },
+          },
+          required: ["authors", "publishedAt"],
+        } as any,
+      },
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: (result as any).error || "Extract failed",
+      };
+    }
+
+    const extracted = (result as any).extract || {};
+
+    return {
+      success: true,
+      authors: extracted.authors || [],
+      publishedAt: extracted.publishedAt || null,
+      markdown: result.markdown,
+    };
+  } catch (error: any) {
+    console.error("Firecrawl extract error:", error);
+    return {
+      success: false,
+      error: error.message || "Firecrawl extract request failed",
+    };
+  }
+}
+
 export interface MapOptions {
   search?: string;
   ignoreSitemap?: boolean;
