@@ -302,6 +302,131 @@
           "result"
         ]
       },
+      "Author": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
+      "ExtractItemSuccess": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            }
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "rawMarkdown": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "url",
+          "success",
+          "authors",
+          "publishedAt",
+          "rawMarkdown"
+        ]
+      },
+      "ExtractItemError": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "success",
+          "error"
+        ]
+      },
+      "ExtractResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ExtractItemSuccess"
+                },
+                {
+                  "$ref": "#/components/schemas/ExtractItemError"
+                }
+              ]
+            }
+          },
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "results"
+        ]
+      },
+      "ExtractRequest": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "minItems": 1,
+            "maxItems": 10
+          },
+          "brandId": {
+            "type": "string"
+          },
+          "campaignId": {
+            "type": "string"
+          },
+          "workflowName": {
+            "type": "string"
+          },
+          "featureSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "urls"
+        ]
+      },
       "MapSuccessResponse": {
         "type": "object",
         "properties": {
@@ -617,6 +742,70 @@
           },
           "404": {
             "description": "No cached result found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/extract": {
+      "post": {
+        "summary": "Extract article metadata (authors, publication date) from URLs using LLM",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extraction results (one per URL)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "402": {
+            "description": "Insufficient credits (platform key only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsufficientCreditsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Extract failed",
             "content": {
               "application/json": {
                 "schema": {

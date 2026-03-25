@@ -8,6 +8,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import healthRoutes from "./routes/health.js";
 import scrapeRoutes from "./routes/scrape.js";
 import mapRoutes from "./routes/map.js";
+import extractRoutes from "./routes/extract.js";
 import { serviceAuth } from "./middleware/auth.js";
 import { db } from "./db/index.js";
 
@@ -43,6 +44,7 @@ app.use(serviceAuth);
 app.use(healthRoutes);
 app.use(scrapeRoutes);
 app.use(mapRoutes);
+app.use(extractRoutes);
 
 // 404 handler
 app.use((req, res) => {

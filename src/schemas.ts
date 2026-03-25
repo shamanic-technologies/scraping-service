@@ -108,6 +108,52 @@ const ScrapeByUrlResponseSchema = z
   })
   .openapi("ScrapeByUrlResponse");
 
+// --- Extract schemas ---
+
+const AuthorSchema = z
+  .object({
+    firstName: z.string(),
+    lastName: z.string(),
+  })
+  .openapi("Author");
+
+export const ExtractRequestSchema = z
+  .object({
+    urls: z.array(z.string().url()).min(1).max(10),
+    brandId: z.string().optional(),
+    campaignId: z.string().optional(),
+    workflowName: z.string().optional(),
+    featureSlug: z.string().optional(),
+  })
+  .openapi("ExtractRequest");
+
+export type ExtractRequest = z.infer<typeof ExtractRequestSchema>;
+
+const ExtractItemSuccessSchema = z
+  .object({
+    url: z.string(),
+    success: z.literal(true),
+    authors: z.array(AuthorSchema),
+    publishedAt: z.string().nullable(),
+    rawMarkdown: z.string().nullable(),
+  })
+  .openapi("ExtractItemSuccess");
+
+const ExtractItemErrorSchema = z
+  .object({
+    url: z.string(),
+    success: z.literal(false),
+    error: z.string(),
+  })
+  .openapi("ExtractItemError");
+
+const ExtractResponseSchema = z
+  .object({
+    results: z.array(z.union([ExtractItemSuccessSchema, ExtractItemErrorSchema])),
+    runId: z.string().optional(),
+  })
+  .openapi("ExtractResponse");
+
 // --- Map schemas ---
 
 export const MapRequestSchema = z
@@ -277,6 +323,37 @@ registry.registerPath({
     401: { description: "Unauthorized" },
     404: {
       description: "No cached result found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/extract",
+  summary: "Extract article metadata (authors, publication date) from URLs using LLM",
+  security: [{ apiKey: [] }],
+  request: {
+    body: {
+      content: { "application/json": { schema: ExtractRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Extraction results (one per URL)",
+      content: { "application/json": { schema: ExtractResponseSchema } },
+    },
+    400: {
+      description: "Invalid request",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: { description: "Unauthorized" },
+    402: {
+      description: "Insufficient credits (platform key only)",
+      content: { "application/json": { schema: InsufficientCreditsResponseSchema } },
+    },
+    500: {
+      description: "Extract failed",
       content: { "application/json": { schema: ErrorResponseSchema } },
     },
   },
