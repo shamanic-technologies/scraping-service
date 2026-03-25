@@ -277,31 +277,9 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
 });
 
 /**
- * GET /scrape/:id
- * Get a scrape result by ID
- */
-router.get("/scrape/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await db.query.scrapeResults.findFirst({
-      where: eq(scrapeResults.id, id),
-    });
-
-    if (!result) {
-      return res.status(404).json({ error: "Result not found" });
-    }
-
-    res.json({ result: formatResult(result) });
-  } catch (error: any) {
-    console.error("Get result error:", error);
-    res.status(500).json({ error: error.message || "Internal server error" });
-  }
-});
-
-/**
  * GET /scrape/by-url
  * Get cached result by URL
+ * NOTE: Must be registered BEFORE /scrape/:id to avoid "by-url" matching as a UUID param
  */
 router.get("/scrape/by-url", async (req, res) => {
   try {
@@ -339,6 +317,29 @@ router.get("/scrape/by-url", async (req, res) => {
     });
   } catch (error: any) {
     console.error("Get by URL error:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+/**
+ * GET /scrape/:id
+ * Get a scrape result by ID
+ */
+router.get("/scrape/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query.scrapeResults.findFirst({
+      where: eq(scrapeResults.id, id),
+    });
+
+    if (!result) {
+      return res.status(404).json({ error: "Result not found" });
+    }
+
+    res.json({ result: formatResult(result) });
+  } catch (error: any) {
+    console.error("Get result error:", error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
