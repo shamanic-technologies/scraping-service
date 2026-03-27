@@ -27,7 +27,7 @@ Optional tracking headers (injected automatically by workflow-service):
 | `GET` | `/scrape/:id` | Get a scrape result by ID |
 | `GET` | `/scrape/by-url?url=` | Get cached result by URL |
 | `POST` | `/map` | Discover all URLs on a website (max 500) |
-| `POST` | `/extract` | Extract article metadata (authors, date) via metadata parsing |
+| `POST` | `/extract` | Extract article metadata (authors, date) via LLM |
 
 ### POST /scrape
 
@@ -68,7 +68,7 @@ Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Re
 
 ### POST /extract
 
-Extracts article metadata (authors, publication date) from up to 10 URLs using a regular Firecrawl scrape + HTML metadata parsing (no LLM). Costs 1 scrape credit per URL instead of LLM tokens. Results are cached for 6 months (180 days) by default per normalized URL. Cached URLs skip Firecrawl entirely (zero cost). Processes uncached URLs concurrently.
+Extracts article metadata (authors, publication date) from up to 10 URLs using Firecrawl's LLM Extract. Results are cached for 6 months (180 days) by default per normalized URL. Cached URLs skip Firecrawl entirely (zero tokens, zero cost). Processes uncached URLs concurrently.
 
 ```json
 {
@@ -104,12 +104,12 @@ Response:
       "error": "Page not found"
     }
   ],
-  "tokensUsed": 0,
+  "tokensUsed": 307,
   "runId": "run-uuid"
 }
 ```
 
-Returns `402` when insufficient credits (platform key only; BYOK skips billing). Cost tracked as `firecrawl-scrape-credit` (1 credit per URL). The `tokensUsed` field is always 0 (kept for backward compatibility).
+Returns `402` when insufficient credits (platform key only; BYOK skips billing). Cost tracked as `firecrawl-extract-token` using actual token consumption reported by Firecrawl.
 
 ## Setup
 
@@ -155,7 +155,7 @@ Uses PostgreSQL via Drizzle ORM. Tables:
 - **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, `campaign_id`, `brand_id`, `workflow_name`, `feature_slug`, timestamps)
 - **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
 - **scrape_cache** - URL-based cache lookup with TTL
-- **extract_cache** - Extraction cache (authors, publishedAt) with configurable TTL (default 180 days)
+- **extract_cache** - LLM extraction cache (authors, publishedAt) with 7-day TTL
 
 Run tracking and cost reporting are delegated to the external [RunsService](https://runs.mcpfactory.org).
 
