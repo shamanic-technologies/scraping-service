@@ -213,8 +213,8 @@ describe("/extract caching", () => {
 
     // Only 1 Firecrawl call (not 2)
     expect(extractUrl).toHaveBeenCalledTimes(1);
-    // Tokens only from the fresh call
-    expect(response.body.tokensUsed).toBe(300);
+    // No LLM tokens — uses scrape credits now
+    expect(response.body.tokensUsed).toBe(0);
   });
 
   it("should only authorize credits for uncached URLs", async () => {
@@ -251,10 +251,10 @@ describe("/extract caching", () => {
         ],
       });
 
-    // Should authorize for 1 URL (500 tokens), not 2 (1000 tokens)
+    // Should authorize for 1 URL (1 scrape credit), not 2
     expect(authorizeCredits).toHaveBeenCalledWith(
-      [{ costName: "firecrawl-extract-token", quantity: 500 }],
-      "firecrawl-extract-token",
+      [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
+      "firecrawl-scrape-credit",
       expect.any(Object)
     );
   });

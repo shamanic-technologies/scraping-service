@@ -134,8 +134,7 @@ describe("/extract endpoint", () => {
       vi.mocked(extractUrl).mockResolvedValueOnce({
         success: true,
         authors: [{ firstName: "Sarah", lastName: "Perez" }],
-        publishedAt: "2025-11-15T00:00:00Z",
-        tokensUsed: 307,
+        publishedAt: "2025-11-15T00:00:00.000Z",
       });
 
       const response = await request(app)
@@ -148,9 +147,9 @@ describe("/extract endpoint", () => {
         url: "https://techcrunch.com/2025/article",
         success: true,
         authors: [{ firstName: "Sarah", lastName: "Perez" }],
-        publishedAt: "2025-11-15T00:00:00Z",
+        publishedAt: "2025-11-15T00:00:00.000Z",
       });
-      expect(response.body.tokensUsed).toBe(307);
+      expect(response.body.tokensUsed).toBe(0);
       expect(response.body.runId).toBe("run-123");
     });
 
@@ -159,8 +158,7 @@ describe("/extract endpoint", () => {
         .mockResolvedValueOnce({
           success: true,
           authors: [{ firstName: "Jane", lastName: "Doe" }],
-          publishedAt: "2025-10-01T00:00:00Z",
-          tokensUsed: 250,
+          publishedAt: "2025-10-01T00:00:00.000Z",
         })
         .mockResolvedValueOnce({
           success: true,
@@ -168,8 +166,7 @@ describe("/extract endpoint", () => {
             { firstName: "John", lastName: "Smith" },
             { firstName: "Alice", lastName: "Johnson" },
           ],
-          publishedAt: "2025-09-20T00:00:00Z",
-          tokensUsed: 310,
+          publishedAt: "2025-09-20T00:00:00.000Z",
         });
 
       const response = await request(app)
@@ -190,7 +187,7 @@ describe("/extract endpoint", () => {
         { firstName: "John", lastName: "Smith" },
         { firstName: "Alice", lastName: "Johnson" },
       ]);
-      expect(response.body.tokensUsed).toBe(560);
+      expect(response.body.tokensUsed).toBe(0);
     });
 
     it("should return per-URL errors without failing the whole batch", async () => {
@@ -198,8 +195,7 @@ describe("/extract endpoint", () => {
         .mockResolvedValueOnce({
           success: true,
           authors: [{ firstName: "Jane", lastName: "Doe" }],
-          publishedAt: "2025-10-01T00:00:00Z",
-          tokensUsed: 250,
+          publishedAt: "2025-10-01T00:00:00.000Z",
         })
         .mockResolvedValueOnce({
           success: false,
@@ -219,7 +215,7 @@ describe("/extract endpoint", () => {
       expect(response.body.results[0].success).toBe(true);
       expect(response.body.results[1].success).toBe(false);
       expect(response.body.results[1].error).toBe("Page not found");
-      expect(response.body.tokensUsed).toBe(250);
+      expect(response.body.tokensUsed).toBe(0);
     });
 
     it("should return 400 when org has no Firecrawl key", async () => {
@@ -248,7 +244,7 @@ describe("/extract endpoint", () => {
       expect(response.body.error).toContain("retrieve");
     });
 
-    it("should authorize credits for platform keys using estimated tokens", async () => {
+    it("should authorize 1 scrape credit per uncached URL for platform keys", async () => {
       vi.mocked(resolveKey).mockResolvedValueOnce({
         provider: "firecrawl",
         key: "platform-key",
@@ -259,7 +255,6 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [],
         publishedAt: null,
-        tokensUsed: 307,
       });
 
       const response = await request(app)
@@ -267,20 +262,18 @@ describe("/extract endpoint", () => {
         .send({ urls: ["https://example.com/article"] });
 
       expect(response.status).toBe(200);
-      // Pre-auth uses estimated 500 tokens per URL
       expect(authorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "firecrawl-extract-token", quantity: 500 }],
-        "firecrawl-extract-token",
+        [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
+        "firecrawl-scrape-credit",
         expect.objectContaining({ orgId: "org_test", userId: "user_test" })
       );
     });
 
-    it("should report actual tokensUsed in addCosts", async () => {
+    it("should report 1 scrape credit per successful extraction in addCosts", async () => {
       vi.mocked(extractUrl).mockResolvedValueOnce({
         success: true,
         authors: [{ firstName: "Sarah", lastName: "Perez" }],
-        publishedAt: "2025-11-15T00:00:00Z",
-        tokensUsed: 307,
+        publishedAt: "2025-11-15T00:00:00.000Z",
       });
 
       await request(app)
@@ -292,12 +285,12 @@ describe("/extract endpoint", () => {
 
       expect(addCosts).toHaveBeenCalledWith(
         "run-123",
-        [{ costName: "firecrawl-extract-token", quantity: 307, costSource: "org" }],
+        [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: "org" }],
         expect.objectContaining({ orgId: "org_test", userId: "user_test" })
       );
     });
 
-    it("should not report costs when tokensUsed is 0", async () => {
+    it("should not report costs when all extractions fail", async () => {
       vi.mocked(extractUrl).mockResolvedValueOnce({
         success: false,
         error: "Page not found",
@@ -341,7 +334,6 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [],
         publishedAt: null,
-        tokensUsed: 200,
       });
 
       const response = await request(app)
@@ -357,7 +349,6 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [{ firstName: "Bob", lastName: "Ross" }],
         publishedAt: null,
-        tokensUsed: 150,
       });
 
       const response = await request(app)
@@ -368,7 +359,7 @@ describe("/extract endpoint", () => {
       expect(response.body.results[0].publishedAt).toBeNull();
     });
 
-    it("should authorize credits for batch size with estimated tokens", async () => {
+    it("should authorize credits for batch size (1 credit per URL)", async () => {
       vi.mocked(resolveKey).mockResolvedValueOnce({
         provider: "firecrawl",
         key: "platform-key",
@@ -379,7 +370,6 @@ describe("/extract endpoint", () => {
         success: true,
         authors: [],
         publishedAt: null,
-        tokensUsed: 300,
       });
 
       const urls = Array.from(
@@ -389,27 +379,24 @@ describe("/extract endpoint", () => {
 
       await request(app).post("/extract").send({ urls });
 
-      // Pre-auth: 5 URLs × 500 estimated tokens = 2500
+      // 5 URLs × 1 credit each = 5
       expect(authorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "firecrawl-extract-token", quantity: 2500 }],
-        "firecrawl-extract-token",
+        [{ costName: "firecrawl-scrape-credit", quantity: 5 }],
+        "firecrawl-scrape-credit",
         expect.any(Object)
       );
     });
 
-    it("should sum tokensUsed across all URLs in addCosts", async () => {
+    it("should report scrape credits for successful URLs only in addCosts", async () => {
       vi.mocked(extractUrl)
         .mockResolvedValueOnce({
           success: true,
           authors: [],
           publishedAt: null,
-          tokensUsed: 300,
         })
         .mockResolvedValueOnce({
-          success: true,
-          authors: [],
-          publishedAt: null,
-          tokensUsed: 450,
+          success: false,
+          error: "Page not found",
         });
 
       await request(app)
@@ -424,9 +411,10 @@ describe("/extract endpoint", () => {
       // Wait for the fire-and-forget Promise.all
       await new Promise((r) => setTimeout(r, 50));
 
+      // Only 1 of 2 URLs succeeded
       expect(addCosts).toHaveBeenCalledWith(
         "run-123",
-        [{ costName: "firecrawl-extract-token", quantity: 750, costSource: "org" }],
+        [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: "org" }],
         expect.objectContaining({ orgId: "org_test" })
       );
     });
