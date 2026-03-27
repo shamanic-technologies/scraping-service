@@ -121,6 +121,7 @@ export const ExtractRequestSchema = z
   .object({
     urls: z.array(z.string().url()).min(1).max(10),
     skipCache: z.boolean().optional().default(false),
+    cacheTtlDays: z.number().int().min(1).max(365).optional(),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
     workflowName: z.string().optional(),

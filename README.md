@@ -68,7 +68,7 @@ Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Re
 
 ### POST /extract
 
-Extracts article metadata (authors, publication date) from up to 10 URLs using Firecrawl's LLM Extract. Results are cached for 7 days per normalized URL. Cached URLs skip Firecrawl entirely (zero tokens, zero cost). Processes uncached URLs concurrently.
+Extracts article metadata (authors, publication date) from up to 10 URLs using Firecrawl's LLM Extract. Results are cached for 6 months (180 days) by default per normalized URL. Cached URLs skip Firecrawl entirely (zero tokens, zero cost). Processes uncached URLs concurrently.
 
 ```json
 {
@@ -77,6 +77,7 @@ Extracts article metadata (authors, publication date) from up to 10 URLs using F
     "https://wired.com/story/another-article"
   ],
   "skipCache": false,
+  "cacheTtlDays": 180,
   "brandId": "brand_1",
   "campaignId": "campaign_2",
   "workflowName": "journalist-outreach",
