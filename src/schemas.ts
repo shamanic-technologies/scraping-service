@@ -34,6 +34,7 @@ const ScrapeOptionsSchema = z
     includeTags: z.array(z.string()).optional(),
     excludeTags: z.array(z.string()).optional(),
     waitFor: z.number().optional(),
+    timeout: z.number().int().min(1000).max(300000).optional(),
   })
   .openapi("ScrapeOptions");
 
