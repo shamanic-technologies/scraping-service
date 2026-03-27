@@ -11,8 +11,8 @@ import { ExtractRequestSchema } from "../schemas.js";
 
 const router = Router();
 
-// Cache duration: 7 days
-const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+// Default cache duration: 6 months (180 days)
+const DEFAULT_CACHE_DURATION_MS = 180 * 24 * 60 * 60 * 1000;
 
 /**
  * POST /extract
@@ -30,7 +30,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    const { urls, skipCache, brandId, campaignId, workflowName, featureSlug } =
+    const { urls, skipCache, cacheTtlDays, brandId, campaignId, workflowName, featureSlug } =
       parsed.data;
 
     const orgId = req.orgId!;
@@ -199,7 +199,10 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
 
         // Write to cache on success
         if (result.success) {
-          const expiresAt = new Date(Date.now() + CACHE_DURATION_MS);
+          const cacheDurationMs = cacheTtlDays
+            ? cacheTtlDays * 24 * 60 * 60 * 1000
+            : DEFAULT_CACHE_DURATION_MS;
+          const expiresAt = new Date(Date.now() + cacheDurationMs);
           try {
             await db
               .insert(extractCache)

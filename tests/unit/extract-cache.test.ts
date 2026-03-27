@@ -312,4 +312,57 @@ describe("/extract caching", () => {
     expect(authorizeCredits).not.toHaveBeenCalled();
     expect(addCosts).not.toHaveBeenCalled();
   });
+
+  it("should use custom cacheTtlDays when provided", async () => {
+    vi.mocked(extractUrl).mockResolvedValueOnce({
+      success: true,
+      authors: [{ firstName: "Jane", lastName: "Doe" }],
+      publishedAt: "2025-10-01T00:00:00Z",
+      tokensUsed: 250,
+    });
+
+    const now = Date.now();
+    await request(app)
+      .post("/extract")
+      .send({
+        urls: ["https://example.com/custom-ttl"],
+        cacheTtlDays: 7,
+      });
+
+    // Verify cache was written with ~7 day expiry (not default 180 days)
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        normalizedUrl: "example.com/custom-ttl",
+        isValid: true,
+      })
+    );
+
+    const writtenValues = mockValues.mock.calls[0][0];
+    const expiresAt = new Date(writtenValues.expiresAt).getTime();
+    const expectedMin = now + 6 * 24 * 60 * 60 * 1000; // at least 6 days
+    const expectedMax = now + 8 * 24 * 60 * 60 * 1000; // at most 8 days
+    expect(expiresAt).toBeGreaterThan(expectedMin);
+    expect(expiresAt).toBeLessThan(expectedMax);
+  });
+
+  it("should default to 180-day TTL when cacheTtlDays is not provided", async () => {
+    vi.mocked(extractUrl).mockResolvedValueOnce({
+      success: true,
+      authors: [{ firstName: "Jane", lastName: "Doe" }],
+      publishedAt: "2025-10-01T00:00:00Z",
+      tokensUsed: 250,
+    });
+
+    const now = Date.now();
+    await request(app)
+      .post("/extract")
+      .send({ urls: ["https://example.com/default-ttl"] });
+
+    const writtenValues = mockValues.mock.calls[0][0];
+    const expiresAt = new Date(writtenValues.expiresAt).getTime();
+    const expectedMin = now + 179 * 24 * 60 * 60 * 1000;
+    const expectedMax = now + 181 * 24 * 60 * 60 * 1000;
+    expect(expiresAt).toBeGreaterThan(expectedMin);
+    expect(expiresAt).toBeLessThan(expectedMax);
+  });
 });

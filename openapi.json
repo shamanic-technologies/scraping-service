@@ -419,6 +419,11 @@
             "type": "boolean",
             "default": false
           },
+          "cacheTtlDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
           "brandId": {
             "type": "string"
           },
