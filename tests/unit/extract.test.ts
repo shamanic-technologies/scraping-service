@@ -1,5 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Mock DB (extract cache always misses — these tests cover the non-cached path)
+vi.mock("../../src/db/index.js", () => ({
+  db: {
+    query: {
+      extractCache: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+    },
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+      })),
+    })),
+  },
+}));
+
 // Mock key-client before importing app
 vi.mock("../../src/lib/key-client.js", () => ({
   resolveKey: vi

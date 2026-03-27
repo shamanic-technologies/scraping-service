@@ -143,6 +143,34 @@ export const scrapeCache = pgTable(
   ]
 );
 
+/**
+ * Extract cache - stores LLM extraction results (authors, publishedAt)
+ * to avoid re-calling Firecrawl's expensive /v1/extract API for the same URL.
+ * 7-day TTL, keyed on normalizedUrl.
+ */
+export const extractCache = pgTable(
+  "extract_cache",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    normalizedUrl: text("normalized_url").notNull().unique(),
+
+    // Extracted data
+    authors: jsonb("authors"), // Array of { firstName, lastName }
+    publishedAt: text("published_at"),
+
+    // Cache validity
+    isValid: boolean("is_valid").notNull().default(true),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idx_extract_cache_normalized_url").on(table.normalizedUrl),
+    index("idx_extract_cache_expires").on(table.expiresAt),
+  ]
+);
+
 // Type exports
 export type ScrapeRequest = typeof scrapeRequests.$inferSelect;
 export type NewScrapeRequest = typeof scrapeRequests.$inferInsert;
@@ -150,3 +178,5 @@ export type ScrapeResult = typeof scrapeResults.$inferSelect;
 export type NewScrapeResult = typeof scrapeResults.$inferInsert;
 export type ScrapeCache = typeof scrapeCache.$inferSelect;
 export type NewScrapeCache = typeof scrapeCache.$inferInsert;
+export type ExtractCache = typeof extractCache.$inferSelect;
+export type NewExtractCache = typeof extractCache.$inferInsert;

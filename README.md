@@ -68,7 +68,7 @@ Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Re
 
 ### POST /extract
 
-Extracts article metadata (authors, publication date) from up to 10 URLs using Firecrawl's LLM Extract. Processes all URLs concurrently.
+Extracts article metadata (authors, publication date) from up to 10 URLs using Firecrawl's LLM Extract. Results are cached for 7 days per normalized URL. Cached URLs skip Firecrawl entirely (zero tokens, zero cost). Processes uncached URLs concurrently.
 
 ```json
 {
@@ -76,6 +76,7 @@ Extracts article metadata (authors, publication date) from up to 10 URLs using F
     "https://techcrunch.com/2025/11/15/some-article",
     "https://wired.com/story/another-article"
   ],
+  "skipCache": false,
   "brandId": "brand_1",
   "campaignId": "campaign_2",
   "workflowName": "journalist-outreach",
@@ -153,6 +154,7 @@ Uses PostgreSQL via Drizzle ORM. Tables:
 - **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, `campaign_id`, `brand_id`, `workflow_name`, `feature_slug`, timestamps)
 - **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
 - **scrape_cache** - URL-based cache lookup with TTL
+- **extract_cache** - LLM extraction cache (authors, publishedAt) with 7-day TTL
 
 Run tracking and cost reporting are delegated to the external [RunsService](https://runs.mcpfactory.org).
 

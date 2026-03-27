@@ -338,6 +338,9 @@
           "publishedAt": {
             "type": "string",
             "nullable": true
+          },
+          "cached": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -390,6 +393,9 @@
           },
           "runId": {
             "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -408,6 +414,10 @@
             },
             "minItems": 1,
             "maxItems": 10
+          },
+          "skipCache": {
+            "type": "boolean",
+            "default": false
           },
           "brandId": {
             "type": "string"

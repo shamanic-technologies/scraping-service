@@ -120,6 +120,7 @@ const AuthorSchema = z
 export const ExtractRequestSchema = z
   .object({
     urls: z.array(z.string().url()).min(1).max(10),
+    skipCache: z.boolean().optional().default(false),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
     workflowName: z.string().optional(),
@@ -135,6 +136,7 @@ const ExtractItemSuccessSchema = z
     success: z.literal(true),
     authors: z.array(AuthorSchema),
     publishedAt: z.string().nullable(),
+    cached: z.boolean().optional(),
   })
   .openapi("ExtractItemSuccess");
 
@@ -151,6 +153,7 @@ const ExtractResponseSchema = z
     results: z.array(z.union([ExtractItemSuccessSchema, ExtractItemErrorSchema])),
     tokensUsed: z.number(),
     runId: z.string().optional(),
+    cached: z.boolean().optional(),
   })
   .openapi("ExtractResponse");
 
