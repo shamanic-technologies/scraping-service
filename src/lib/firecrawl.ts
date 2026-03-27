@@ -6,6 +6,7 @@ export interface ScrapeOptions {
   includeTags?: string[];
   excludeTags?: string[];
   waitFor?: number;
+  timeout?: number;
 }
 
 export interface ScrapeResponse {
@@ -24,8 +25,12 @@ export interface ScrapeResponse {
   error?: string;
 }
 
+const DEFAULT_TIMEOUT_MS = 60000;
+const RETRY_TIMEOUT_MS = 120000;
+
 /**
- * Scrape a URL using Firecrawl
+ * Scrape a URL using Firecrawl.
+ * On a 408 timeout, automatically retries once with a longer timeout.
  */
 export async function scrapeUrl(
   url: string,
@@ -33,14 +38,16 @@ export async function scrapeUrl(
   options: ScrapeOptions = {}
 ): Promise<ScrapeResponse> {
   const firecrawl = new FirecrawlApp({ apiKey });
+  const baseTimeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
 
-  try {
+  const attempt = async (timeout: number): Promise<ScrapeResponse> => {
     const result = await firecrawl.scrapeUrl(url, {
       formats: options.formats || ["markdown"],
       onlyMainContent: options.onlyMainContent ?? true,
       includeTags: options.includeTags,
       excludeTags: options.excludeTags,
       waitFor: options.waitFor,
+      timeout,
     });
 
     if (!result.success) {
@@ -56,8 +63,26 @@ export async function scrapeUrl(
       html: result.html,
       metadata: result.metadata,
     };
+  };
+
+  try {
+    return await attempt(baseTimeout);
   } catch (error: any) {
-    console.error("Firecrawl error:", error);
+    if (error.statusCode === 408) {
+      console.warn(
+        `[scraping-service] Timeout scraping ${url} (${baseTimeout}ms), retrying with ${RETRY_TIMEOUT_MS}ms`
+      );
+      try {
+        return await attempt(RETRY_TIMEOUT_MS);
+      } catch (retryError: any) {
+        console.error("[scraping-service] Retry also failed:", retryError);
+        return {
+          success: false,
+          error: retryError.message || "Firecrawl request timed out after retry",
+        };
+      }
+    }
+    console.error("[scraping-service] Firecrawl error:", error);
     return {
       success: false,
       error: error.message || "Firecrawl request failed",
