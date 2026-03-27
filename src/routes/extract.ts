@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { extractUrl } from "../lib/firecrawl.js";
+import { eq, and, gt } from "drizzle-orm";
+import { db } from "../db/index.js";
+import { extractCache } from "../db/schema.js";
+import { extractUrl, normalizeUrl } from "../lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
@@ -8,10 +11,14 @@ import { ExtractRequestSchema } from "../schemas.js";
 
 const router = Router();
 
+// Cache duration: 7 days
+const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
  * POST /extract
  * Extract article metadata (authors, publishedAt) from one or more URLs
  * using Firecrawl's LLM Extract.
+ * Results are cached for 7 days per normalized URL.
  */
 router.post("/extract", async (req: AuthenticatedRequest, res) => {
   try {
@@ -23,7 +30,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    const { urls, brandId, campaignId, workflowName, featureSlug } =
+    const { urls, skipCache, brandId, campaignId, workflowName, featureSlug } =
       parsed.data;
 
     const orgId = req.orgId!;
@@ -34,6 +41,63 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
     const effectiveBrandId = req.brandId || brandId;
     const effectiveWorkflowName = req.workflowName || workflowName;
     const effectiveFeatureSlug = req.featureSlug || featureSlug;
+
+    // Check cache for each URL
+    const normalizedUrls = urls.map((url) => ({
+      url,
+      normalized: normalizeUrl(url),
+    }));
+
+    const cachedResults: Map<
+      string,
+      { authors: { firstName: string; lastName: string }[]; publishedAt: string | null }
+    > = new Map();
+    const uncachedUrls: { url: string; normalized: string }[] = [];
+
+    if (!skipCache) {
+      await Promise.all(
+        normalizedUrls.map(async ({ url, normalized }) => {
+          const cached = await db.query.extractCache.findFirst({
+            where: and(
+              eq(extractCache.normalizedUrl, normalized),
+              eq(extractCache.isValid, true),
+              gt(extractCache.expiresAt, new Date())
+            ),
+          });
+
+          if (cached) {
+            cachedResults.set(url, {
+              authors: (cached.authors as { firstName: string; lastName: string }[]) || [],
+              publishedAt: cached.publishedAt || null,
+            });
+          } else {
+            uncachedUrls.push({ url, normalized });
+          }
+        })
+      );
+    } else {
+      uncachedUrls.push(...normalizedUrls);
+    }
+
+    // If everything is cached, return immediately (no key resolution, no billing, no run)
+    if (uncachedUrls.length === 0) {
+      const results = urls.map((url) => {
+        const cached = cachedResults.get(url)!;
+        return {
+          url,
+          success: true as const,
+          authors: cached.authors,
+          publishedAt: cached.publishedAt,
+          cached: true,
+        };
+      });
+
+      return res.json({
+        results,
+        tokensUsed: 0,
+        cached: true,
+      });
+    }
 
     // Resolve Firecrawl key
     let firecrawlApiKey: string;
@@ -64,7 +128,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       throw err;
     }
 
-    // Authorize credits (platform keys only) — estimate 500 tokens per URL
+    // Authorize credits (platform keys only) — only for uncached URLs
     const ESTIMATED_TOKENS_PER_URL = 500;
     if (keySource === "platform") {
       try {
@@ -81,7 +145,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           [
             {
               costName: "firecrawl-extract-token",
-              quantity: urls.length * ESTIMATED_TOKENS_PER_URL,
+              quantity: uncachedUrls.length * ESTIMATED_TOKENS_PER_URL,
             },
           ],
           "firecrawl-extract-token",
@@ -95,7 +159,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           });
         }
       } catch (err) {
-        console.error("Billing authorization failed:", err);
+        console.error("[scraping-service] Billing authorization failed:", err);
         return res
           .status(502)
           .json({ error: "Billing authorization unavailable" });
@@ -125,34 +189,78 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       );
       runId = run.id;
     } catch (err) {
-      console.error("Failed to create run:", err);
+      console.error("[scraping-service] Failed to create run:", err);
     }
 
-    // Extract from all URLs concurrently
-    const extractResults = await Promise.all(
-      urls.map(async (url) => {
+    // Extract only uncached URLs
+    const freshResults = await Promise.all(
+      uncachedUrls.map(async ({ url, normalized }) => {
         const result = await extractUrl(url, firecrawlApiKey);
+
+        // Write to cache on success
+        if (result.success) {
+          const expiresAt = new Date(Date.now() + CACHE_DURATION_MS);
+          try {
+            await db
+              .insert(extractCache)
+              .values({
+                normalizedUrl: normalized,
+                authors: (result.authors || []) as any,
+                publishedAt: result.publishedAt || null,
+                isValid: true,
+                expiresAt,
+              })
+              .onConflictDoUpdate({
+                target: extractCache.normalizedUrl,
+                set: {
+                  authors: (result.authors || []) as any,
+                  publishedAt: result.publishedAt || null,
+                  isValid: true,
+                  expiresAt,
+                  updatedAt: new Date(),
+                },
+              });
+          } catch (cacheErr) {
+            console.error("[scraping-service] Failed to write extract cache:", cacheErr);
+          }
+        }
+
         return { url, result };
       })
     );
 
-    const results = extractResults.map(({ url, result }) => {
-      if (!result.success) {
+    // Merge cached + fresh results, preserving original URL order
+    const freshMap = new Map(freshResults.map(({ url, result }) => [url, result]));
+
+    const results = urls.map((url) => {
+      const cached = cachedResults.get(url);
+      if (cached) {
+        return {
+          url,
+          success: true as const,
+          authors: cached.authors,
+          publishedAt: cached.publishedAt,
+          cached: true,
+        };
+      }
+
+      const fresh = freshMap.get(url)!;
+      if (!fresh.success) {
         return {
           url,
           success: false as const,
-          error: result.error || "Extract failed",
+          error: fresh.error || "Extract failed",
         };
       }
       return {
         url,
         success: true as const,
-        authors: result.authors || [],
-        publishedAt: result.publishedAt || null,
+        authors: fresh.authors || [],
+        publishedAt: fresh.publishedAt || null,
       };
     });
 
-    const totalTokensUsed = extractResults.reduce(
+    const totalTokensUsed = freshResults.reduce(
       (sum, { result }) => sum + (result.tokensUsed || 0),
       0
     );
@@ -178,7 +286,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           ? [addCosts(runId, costItems, runIdentity)]
           : []),
         updateRunStatus(runId, allFailed ? "failed" : "completed", runIdentity),
-      ]).catch((err) => console.error("Failed to finalize run:", err));
+      ]).catch((err) => console.error("[scraping-service] Failed to finalize run:", err));
     }
 
     res.json({
@@ -187,7 +295,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       runId,
     });
   } catch (error: any) {
-    console.error("Extract error:", error);
+    console.error("[scraping-service] Extract error:", error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
