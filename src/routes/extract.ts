@@ -128,7 +128,8 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       throw err;
     }
 
-    // Authorize credits (platform keys only) — 1 scrape credit per uncached URL
+    // Authorize credits (platform keys only) — only for uncached URLs
+    const ESTIMATED_TOKENS_PER_URL = 500;
     if (keySource === "platform") {
       try {
         const billingIdentity = {
@@ -143,11 +144,11 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         const auth = await authorizeCredits(
           [
             {
-              costName: "firecrawl-scrape-credit",
-              quantity: uncachedUrls.length,
+              costName: "firecrawl-extract-token",
+              quantity: uncachedUrls.length * ESTIMATED_TOKENS_PER_URL,
             },
           ],
-          "firecrawl-scrape-credit",
+          "firecrawl-extract-token",
           billingIdentity
         );
         if (!auth.sufficient) {
@@ -262,11 +263,14 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       };
     });
 
+    const totalTokensUsed = freshResults.reduce(
+      (sum, { result }) => sum + (result.tokensUsed || 0),
+      0
+    );
     const successCount = results.filter((r) => r.success).length;
-    const freshSuccessCount = freshResults.filter(({ result }) => result.success).length;
     const allFailed = successCount === 0;
 
-    // Report costs (1 scrape credit per successful fresh extraction) and complete run
+    // Report costs (actual tokens used) and complete run
     if (runId) {
       const runIdentity = {
         orgId,
@@ -277,8 +281,8 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         workflowName: effectiveWorkflowName,
         featureSlug: effectiveFeatureSlug,
       };
-      const costItems = freshSuccessCount > 0
-        ? [{ costName: "firecrawl-scrape-credit", quantity: freshSuccessCount, costSource: keySource }]
+      const costItems = totalTokensUsed > 0
+        ? [{ costName: "firecrawl-extract-token", quantity: totalTokensUsed, costSource: keySource }]
         : [];
       Promise.all([
         ...(costItems.length > 0
@@ -290,7 +294,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
 
     res.json({
       results,
-      tokensUsed: 0,
+      tokensUsed: totalTokensUsed,
       runId,
     });
   } catch (error: any) {

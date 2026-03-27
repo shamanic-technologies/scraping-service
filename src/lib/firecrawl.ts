@@ -80,211 +80,131 @@ export function normalizeUrl(url: string): string {
   }
 }
 
-// --- Extract (metadata parsing from scrape — no LLM) ---
+// --- Extract (LLM extraction via dedicated /v1/extract API) ---
 
 export interface ExtractResult {
   success: boolean;
   authors?: { firstName: string; lastName: string }[];
   publishedAt?: string | null;
+  tokensUsed?: number;
   error?: string;
 }
 
-/**
- * Known organization / non-human author names to filter out.
- */
-const ORG_AUTHOR_PATTERNS = [
-  /\bstaff\b/i,
-  /\beditor(s|ial)?\b/i,
-  /\bnewsroom\b/i,
-  /\bteam\b/i,
-  /\bdesk\b/i,
-  /\bwire\b/i,
-  /\bpress\b/i,
-  /\bassociated press\b/i,
-  /^reuters$/i,
-  /^ap$/i,
-  /^afp$/i,
-];
+const EXTRACT_SCHEMA = {
+  type: "object",
+  properties: {
+    authors: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          firstName: { type: "string" },
+          lastName: { type: "string" },
+        },
+        required: ["firstName", "lastName"],
+      },
+    },
+    publishedAt: { type: ["string", "null"] },
+  },
+  required: ["authors", "publishedAt"],
+};
+
+const EXTRACT_PROMPT =
+  "Extract the article author(s) and the publication date. " +
+  "For authors, return only real human names (not organization names like 'Reuters Staff' or 'AP News'). " +
+  "Split each name into firstName and lastName. " +
+  "For publishedAt, return an ISO 8601 date string, or null if not found.";
+
+const FIRECRAWL_API_URL = "https://api.firecrawl.dev";
+const EXTRACT_POLL_INTERVAL_MS = 1000;
+const EXTRACT_MAX_POLLS = 60;
 
 /**
- * Split a full name string into firstName / lastName.
- */
-export function splitAuthorName(name: string): { firstName: string; lastName: string } | null {
-  const trimmed = name.trim();
-  if (!trimmed) return null;
-
-  // Filter out organization names
-  if (ORG_AUTHOR_PATTERNS.some((p) => p.test(trimmed))) return null;
-
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: "" };
-  }
-  return {
-    firstName: parts.slice(0, -1).join(" "),
-    lastName: parts[parts.length - 1],
-  };
-}
-
-/**
- * Parse authors from scrape metadata.
- * Looks at common meta tag keys that Firecrawl returns.
- */
-export function parseAuthorsFromMetadata(
-  metadata: Record<string, unknown>
-): { firstName: string; lastName: string }[] {
-  // Keys where article authors are commonly found in Firecrawl metadata
-  const authorKeys = [
-    "author",
-    "article:author",
-    "og:article:author",
-    "dc.creator",
-    "citation_author",
-  ];
-
-  const rawAuthors: string[] = [];
-  for (const key of authorKeys) {
-    const val = metadata[key];
-    if (typeof val === "string" && val.trim()) {
-      rawAuthors.push(val.trim());
-      break; // Use the first key that has a value
-    }
-    if (Array.isArray(val)) {
-      for (const v of val) {
-        if (typeof v === "string" && v.trim()) rawAuthors.push(v.trim());
-      }
-      if (rawAuthors.length > 0) break;
-    }
-  }
-
-  // Also check JSON-LD if embedded in metadata
-  const jsonLd = metadata["jsonLd"] || metadata["json-ld"] || metadata["jsonld"];
-  if (jsonLd && typeof jsonLd === "object") {
-    const ld = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
-    for (const item of ld) {
-      const ldObj = item as Record<string, unknown>;
-      if (ldObj["@type"] === "Article" || ldObj["@type"] === "NewsArticle" || ldObj["@type"] === "BlogPosting") {
-        const author = ldObj["author"];
-        if (typeof author === "string") {
-          rawAuthors.push(author);
-        } else if (Array.isArray(author)) {
-          for (const a of author) {
-            if (typeof a === "string") rawAuthors.push(a);
-            else if (a && typeof a === "object" && typeof (a as any).name === "string") {
-              rawAuthors.push((a as any).name);
-            }
-          }
-        } else if (author && typeof author === "object" && typeof (author as any).name === "string") {
-          rawAuthors.push((author as any).name);
-        }
-      }
-    }
-  }
-
-  // Some author fields contain comma-separated or "and"-separated lists
-  const expanded: string[] = [];
-  for (const raw of rawAuthors) {
-    const parts = raw.split(/,\s*|\s+and\s+/i);
-    expanded.push(...parts);
-  }
-
-  const authors: { firstName: string; lastName: string }[] = [];
-  const seen = new Set<string>();
-  for (const name of expanded) {
-    const parsed = splitAuthorName(name);
-    if (parsed) {
-      const key = `${parsed.firstName}|${parsed.lastName}`.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        authors.push(parsed);
-      }
-    }
-  }
-
-  return authors;
-}
-
-/**
- * Parse publishedAt from scrape metadata.
- */
-export function parsePublishedAtFromMetadata(
-  metadata: Record<string, unknown>
-): string | null {
-  const dateKeys = [
-    "article:published_time",
-    "og:article:published_time",
-    "datePublished",
-    "publishedTime",
-    "date",
-    "dc.date",
-    "citation_publication_date",
-    "sailthru.date",
-  ];
-
-  for (const key of dateKeys) {
-    const val = metadata[key];
-    if (typeof val === "string" && val.trim()) {
-      const d = new Date(val.trim());
-      if (!isNaN(d.getTime())) return d.toISOString();
-    }
-  }
-
-  // Check JSON-LD
-  const jsonLd = metadata["jsonLd"] || metadata["json-ld"] || metadata["jsonld"];
-  if (jsonLd && typeof jsonLd === "object") {
-    const ld = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
-    for (const item of ld) {
-      const ldObj = item as Record<string, unknown>;
-      if (ldObj["@type"] === "Article" || ldObj["@type"] === "NewsArticle" || ldObj["@type"] === "BlogPosting") {
-        const dp = ldObj["datePublished"];
-        if (typeof dp === "string") {
-          const d = new Date(dp);
-          if (!isNaN(d.getTime())) return d.toISOString();
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Extract article metadata (authors, publishedAt) from a URL.
+ * Extract structured article metadata (authors, publishedAt) from a URL
+ * using Firecrawl's dedicated /v1/extract API.
  *
- * Uses a regular Firecrawl scrape (1 credit, no LLM) and parses
- * the HTML metadata instead of the expensive /v1/extract LLM API.
+ * Uses raw HTTP instead of the SDK because the SDK drops `tokensUsed`
+ * from the response, which we need for cost tracking.
  */
 export async function extractUrl(
   url: string,
   apiKey: string
 ): Promise<ExtractResult> {
   try {
-    const scrapeResult = await scrapeUrl(url, apiKey, {
-      formats: ["markdown"],
-      onlyMainContent: false, // Need full page metadata
+    // Start extract job
+    const startRes = await fetch(`${FIRECRAWL_API_URL}/v1/extract`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        urls: [url],
+        prompt: EXTRACT_PROMPT,
+        schema: EXTRACT_SCHEMA,
+      }),
     });
 
-    if (!scrapeResult.success) {
+    if (!startRes.ok) {
+      const errBody = await startRes.text();
       return {
         success: false,
-        error: scrapeResult.error || "Scrape failed",
+        error: `Firecrawl extract start failed (${startRes.status}): ${errBody}`,
       };
     }
 
-    const metadata = (scrapeResult.metadata || {}) as Record<string, unknown>;
-    const authors = parseAuthorsFromMetadata(metadata);
-    const publishedAt = parsePublishedAtFromMetadata(metadata);
+    const startData = (await startRes.json()) as { success: boolean; id: string; error?: string };
+    if (!startData.success || !startData.id) {
+      return {
+        success: false,
+        error: startData.error || "Firecrawl extract failed to start",
+      };
+    }
 
-    return {
-      success: true,
-      authors,
-      publishedAt,
-    };
+    // Poll for completion
+    const jobId = startData.id;
+    for (let i = 0; i < EXTRACT_MAX_POLLS; i++) {
+      await new Promise((r) => setTimeout(r, EXTRACT_POLL_INTERVAL_MS));
+
+      const statusRes = await fetch(`${FIRECRAWL_API_URL}/v1/extract/${jobId}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!statusRes.ok) {
+        continue; // Retry on transient errors
+      }
+
+      const status = (await statusRes.json()) as {
+        status: string;
+        success?: boolean;
+        data?: { authors?: { firstName: string; lastName: string }[]; publishedAt?: string | null };
+        tokensUsed?: number;
+        error?: string;
+      };
+
+      if (status.status === "completed") {
+        if (!status.success) {
+          return { success: false, error: status.error || "Extract failed" };
+        }
+        return {
+          success: true,
+          authors: status.data?.authors || [],
+          publishedAt: status.data?.publishedAt || null,
+          tokensUsed: status.tokensUsed,
+        };
+      }
+
+      if (status.status === "failed" || status.status === "cancelled") {
+        return { success: false, error: status.error || `Extract ${status.status}` };
+      }
+    }
+
+    return { success: false, error: "Extract timed out" };
   } catch (error: any) {
-    console.error("[scraping-service] Extract error:", error);
+    console.error("Firecrawl extract error:", error);
     return {
       success: false,
-      error: error.message || "Extract request failed",
+      error: error.message || "Firecrawl extract request failed",
     };
   }
 }
