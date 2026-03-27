@@ -335,7 +335,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/extract",
-  summary: "Extract article metadata (authors, publication date) from URLs using LLM",
+  summary: "Extract article metadata (authors, publication date) from URLs via metadata parsing",
   security: [{ apiKey: [] }],
   request: {
     body: {
