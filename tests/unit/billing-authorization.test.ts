@@ -77,7 +77,7 @@ function createApp(routes: express.Router) {
     req.runId = "run_test";
     req.campaignId = req.headers["x-campaign-id"] || undefined;
     req.brandId = req.headers["x-brand-id"] || undefined;
-    req.workflowName = req.headers["x-workflow-name"] || undefined;
+    req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
     next();
   });
   app.use(routes);
@@ -180,7 +180,7 @@ describe("Billing authorization", () => {
         .post("/scrape")
         .set("X-Campaign-Id", "camp_1")
         .set("X-Brand-Id", "brand_1")
-        .set("X-Workflow-Name", "wf_1")
+        .set("X-Workflow-Slug", "wf_1")
         .send({ url: "https://example.com" });
 
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
@@ -189,7 +189,7 @@ describe("Billing authorization", () => {
         expect.objectContaining({
           campaignId: "camp_1",
           brandId: "brand_1",
-          workflowName: "wf_1",
+          workflowSlug: "wf_1",
         })
       );
     });

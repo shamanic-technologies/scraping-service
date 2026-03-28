@@ -48,7 +48,7 @@ export const ScrapeRequestSchema = z
     // RunsService passthrough fields
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    workflowName: z.string().optional(),
+    workflowSlug: z.string().optional(),
     featureSlug: z.string().optional(),
   })
   .openapi("ScrapeRequest");
@@ -125,7 +125,7 @@ export const ExtractRequestSchema = z
     cacheTtlDays: z.number().int().min(1).max(365).optional(),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    workflowName: z.string().optional(),
+    workflowSlug: z.string().optional(),
     featureSlug: z.string().optional(),
   })
   .openapi("ExtractRequest");
@@ -171,7 +171,7 @@ export const MapRequestSchema = z
     includeSubdomains: z.boolean().optional(),
     brandId: z.string().optional(),
     campaignId: z.string().optional(),
-    workflowName: z.string().optional(),
+    workflowSlug: z.string().optional(),
     featureSlug: z.string().optional(),
   })
   .openapi("MapRequest");

@@ -1,53 +1,53 @@
 import { describe, it, expect } from "vitest";
 import { ScrapeRequestSchema, MapRequestSchema } from "../../src/schemas.js";
 
-describe("workflowName passthrough", () => {
+describe("workflowSlug passthrough", () => {
   describe("ScrapeRequestSchema", () => {
-    it("should accept workflowName as optional string", () => {
+    it("should accept workflowSlug as optional string", () => {
       const result = ScrapeRequestSchema.safeParse({
         url: "https://example.com",
 
-        workflowName: "gtm-outbound",
+        workflowSlug: "gtm-outbound",
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.workflowName).toBe("gtm-outbound");
+        expect(result.data.workflowSlug).toBe("gtm-outbound");
       }
     });
 
-    it("should accept request without workflowName", () => {
+    it("should accept request without workflowSlug", () => {
       const result = ScrapeRequestSchema.safeParse({
         url: "https://example.com",
 
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.workflowName).toBeUndefined();
+        expect(result.data.workflowSlug).toBeUndefined();
       }
     });
   });
 
   describe("MapRequestSchema", () => {
-    it("should accept workflowName as optional string", () => {
+    it("should accept workflowSlug as optional string", () => {
       const result = MapRequestSchema.safeParse({
         url: "https://example.com",
 
-        workflowName: "gtm-outbound",
+        workflowSlug: "gtm-outbound",
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.workflowName).toBe("gtm-outbound");
+        expect(result.data.workflowSlug).toBe("gtm-outbound");
       }
     });
 
-    it("should accept request without workflowName", () => {
+    it("should accept request without workflowSlug", () => {
       const result = MapRequestSchema.safeParse({
         url: "https://example.com",
 
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.workflowName).toBeUndefined();
+        expect(result.data.workflowSlug).toBeUndefined();
       }
     });
   });

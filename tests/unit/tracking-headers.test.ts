@@ -60,7 +60,7 @@ import scrapeRoutes from "../../src/routes/scrape.js";
 import { scrapeUrl } from "../../src/lib/firecrawl.js";
 import { resolveKey } from "../../src/lib/key-client.js";
 
-describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => {
+describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => {
   describe("auth middleware extraction", () => {
     let app: express.Application;
 
@@ -76,7 +76,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         res.json({
           campaignId: req.campaignId,
           brandId: req.brandId,
-          workflowName: req.workflowName,
+          workflowSlug: req.workflowSlug,
           featureSlug: req.featureSlug,
         });
       });
@@ -91,14 +91,14 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .set("X-Run-Id", "run_1")
         .set("X-Campaign-Id", "camp_123")
         .set("X-Brand-Id", "brand_456")
-        .set("X-Workflow-Name", "gtm-outbound")
+        .set("X-Workflow-Slug", "gtm-outbound")
         .set("X-Feature-Slug", "feature_789")
         .send({});
 
       expect(response.status).toBe(200);
       expect(response.body.campaignId).toBe("camp_123");
       expect(response.body.brandId).toBe("brand_456");
-      expect(response.body.workflowName).toBe("gtm-outbound");
+      expect(response.body.workflowSlug).toBe("gtm-outbound");
       expect(response.body.featureSlug).toBe("feature_789");
     });
 
@@ -114,7 +114,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
       expect(response.status).toBe(200);
       expect(response.body.campaignId).toBeUndefined();
       expect(response.body.brandId).toBeUndefined();
-      expect(response.body.workflowName).toBeUndefined();
+      expect(response.body.workflowSlug).toBeUndefined();
       expect(response.body.featureSlug).toBeUndefined();
     });
   });
@@ -133,7 +133,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         req.runId = "run_test";
         req.campaignId = req.headers["x-campaign-id"] || undefined;
         req.brandId = req.headers["x-brand-id"] || undefined;
-        req.workflowName = req.headers["x-workflow-name"] || undefined;
+        req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
       });
@@ -145,7 +145,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .post("/map")
         .set("X-Campaign-Id", "camp_abc")
         .set("X-Brand-Id", "brand_def")
-        .set("X-Workflow-Name", "research-flow")
+        .set("X-Workflow-Slug", "research-flow")
         .set("X-Feature-Slug", "slug_abc")
         .send({ url: "https://example.com" });
 
@@ -153,13 +153,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "camp_abc",
           brandId: "brand_def",
-          workflowName: "research-flow",
+          workflowSlug: "research-flow",
           featureSlug: "slug_abc",
         }),
         expect.objectContaining({
           campaignId: "camp_abc",
           brandId: "brand_def",
-          workflowName: "research-flow",
+          workflowSlug: "research-flow",
           featureSlug: "slug_abc",
         })
       );
@@ -170,7 +170,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .post("/map")
         .set("X-Campaign-Id", "camp_key")
         .set("X-Brand-Id", "brand_key")
-        .set("X-Workflow-Name", "key-flow")
+        .set("X-Workflow-Slug", "key-flow")
         .set("X-Feature-Slug", "slug_key")
         .send({ url: "https://example.com" });
 
@@ -178,7 +178,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "camp_key",
           brandId: "brand_key",
-          workflowName: "key-flow",
+          workflowSlug: "key-flow",
           featureSlug: "slug_key",
         })
       );
@@ -193,13 +193,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: undefined,
           brandId: undefined,
-          workflowName: undefined,
+          workflowSlug: undefined,
           featureSlug: undefined,
         }),
         expect.objectContaining({
           campaignId: undefined,
           brandId: undefined,
-          workflowName: undefined,
+          workflowSlug: undefined,
           featureSlug: undefined,
         })
       );
@@ -220,7 +220,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         req.runId = "run_test";
         req.campaignId = req.headers["x-campaign-id"] || undefined;
         req.brandId = req.headers["x-brand-id"] || undefined;
-        req.workflowName = req.headers["x-workflow-name"] || undefined;
+        req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
       });
@@ -232,13 +232,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .post("/map")
         .set("X-Campaign-Id", "header-campaign")
         .set("X-Brand-Id", "header-brand")
-        .set("X-Workflow-Name", "header-workflow")
+        .set("X-Workflow-Slug", "header-workflow")
         .set("X-Feature-Slug", "header-slug")
         .send({
           url: "https://example.com",
           campaignId: "body-campaign",
           brandId: "body-brand",
-          workflowName: "body-workflow",
+          workflowSlug: "body-workflow",
           featureSlug: "body-slug",
         });
 
@@ -246,7 +246,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "header-campaign",
           brandId: "header-brand",
-          workflowName: "header-workflow",
+          workflowSlug: "header-workflow",
           featureSlug: "header-slug",
         }),
         expect.any(Object)
@@ -260,7 +260,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
           url: "https://example.com",
           campaignId: "body-campaign",
           brandId: "body-brand",
-          workflowName: "body-workflow",
+          workflowSlug: "body-workflow",
           featureSlug: "body-slug",
         });
 
@@ -268,7 +268,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "body-campaign",
           brandId: "body-brand",
-          workflowName: "body-workflow",
+          workflowSlug: "body-workflow",
           featureSlug: "body-slug",
         }),
         expect.any(Object)
@@ -290,7 +290,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         req.runId = "run_test";
         req.campaignId = req.headers["x-campaign-id"] || undefined;
         req.brandId = req.headers["x-brand-id"] || undefined;
-        req.workflowName = req.headers["x-workflow-name"] || undefined;
+        req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
       });
@@ -322,7 +322,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .post("/scrape")
         .set("X-Campaign-Id", "camp_scrape")
         .set("X-Brand-Id", "brand_scrape")
-        .set("X-Workflow-Name", "scrape-flow")
+        .set("X-Workflow-Slug", "scrape-flow")
         .set("X-Feature-Slug", "slug_scrape")
         .send({ url: "https://example.com" });
 
@@ -330,13 +330,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "camp_scrape",
           brandId: "brand_scrape",
-          workflowName: "scrape-flow",
+          workflowSlug: "scrape-flow",
           featureSlug: "slug_scrape",
         }),
         expect.objectContaining({
           campaignId: "camp_scrape",
           brandId: "brand_scrape",
-          workflowName: "scrape-flow",
+          workflowSlug: "scrape-flow",
           featureSlug: "slug_scrape",
         })
       );
@@ -347,7 +347,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .post("/scrape")
         .set("X-Campaign-Id", "camp_db")
         .set("X-Brand-Id", "brand_db")
-        .set("X-Workflow-Name", "db-flow")
+        .set("X-Workflow-Slug", "db-flow")
         .set("X-Feature-Slug", "slug_db")
         .send({ url: "https://example.com" });
 
@@ -355,7 +355,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "camp_db",
           brandId: "brand_db",
-          workflowName: "db-flow",
+          workflowSlug: "db-flow",
           featureSlug: "slug_db",
         })
       );
@@ -366,7 +366,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         .post("/scrape")
         .set("X-Campaign-Id", "camp_key_s")
         .set("X-Brand-Id", "brand_key_s")
-        .set("X-Workflow-Name", "key-flow-s")
+        .set("X-Workflow-Slug", "key-flow-s")
         .set("X-Feature-Slug", "slug_key_s")
         .send({ url: "https://example.com" });
 
@@ -374,7 +374,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-name)", () => 
         expect.objectContaining({
           campaignId: "camp_key_s",
           brandId: "brand_key_s",
-          workflowName: "key-flow-s",
+          workflowSlug: "key-flow-s",
           featureSlug: "slug_key_s",
         })
       );

@@ -43,6 +43,13 @@
       "when": 1774578926812,
       "tag": "0005_eminent_jazinda",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774944000000,
+      "tag": "0006_rename_workflow_slug",
+      "breakpoints": true
     }
   ]
 }

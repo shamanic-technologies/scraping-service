@@ -30,7 +30,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    const { urls, skipCache, cacheTtlDays, brandId, campaignId, workflowName, featureSlug } =
+    const { urls, skipCache, cacheTtlDays, brandId, campaignId, workflowSlug, featureSlug } =
       parsed.data;
 
     const orgId = req.orgId!;
@@ -39,7 +39,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
 
     const effectiveCampaignId = req.campaignId || campaignId;
     const effectiveBrandId = req.brandId || brandId;
-    const effectiveWorkflowName = req.workflowName || workflowName;
+    const effectiveWorkflowSlug = req.workflowSlug || workflowSlug;
     const effectiveFeatureSlug = req.featureSlug || featureSlug;
 
     // Check cache for each URL
@@ -110,7 +110,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         runId: parentRunId,
         campaignId: effectiveCampaignId,
         brandId: effectiveBrandId,
-        workflowName: effectiveWorkflowName,
+        workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
         caller: { method: "POST", path: "/extract" },
       });
@@ -138,7 +138,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           runId: parentRunId,
           campaignId: effectiveCampaignId,
           brandId: effectiveBrandId,
-          workflowName: effectiveWorkflowName,
+          workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
         };
         const auth = await authorizeCredits(
@@ -174,7 +174,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           taskName: "extract",
           brandId: effectiveBrandId,
           campaignId: effectiveCampaignId,
-          workflowName: effectiveWorkflowName,
+          workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
         },
         {
@@ -183,7 +183,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           runId: parentRunId,
           campaignId: effectiveCampaignId,
           brandId: effectiveBrandId,
-          workflowName: effectiveWorkflowName,
+          workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
         }
       );
@@ -278,7 +278,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         runId,
         campaignId: effectiveCampaignId,
         brandId: effectiveBrandId,
-        workflowName: effectiveWorkflowName,
+        workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
       };
       const costItems = totalTokensUsed > 0

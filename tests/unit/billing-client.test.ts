@@ -27,7 +27,7 @@ describe("billing-client", () => {
       runId: "run_1",
       campaignId: "camp_1",
       brandId: "brand_1",
-      workflowName: "wf_1",
+      workflowSlug: "wf_1",
     });
 
     expect(fetch).toHaveBeenCalledWith(
@@ -42,7 +42,7 @@ describe("billing-client", () => {
           "x-run-id": "run_1",
           "x-campaign-id": "camp_1",
           "x-brand-id": "brand_1",
-          "x-workflow-name": "wf_1",
+          "x-workflow-slug": "wf_1",
         }),
         body: JSON.stringify({
           items: [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
@@ -88,7 +88,7 @@ describe("billing-client", () => {
     expect(callHeaders["x-run-id"]).toBeUndefined();
     expect(callHeaders["x-campaign-id"]).toBeUndefined();
     expect(callHeaders["x-brand-id"]).toBeUndefined();
-    expect(callHeaders["x-workflow-name"]).toBeUndefined();
+    expect(callHeaders["x-workflow-slug"]).toBeUndefined();
   });
 
   it("should throw when billing-service returns non-OK status", async () => {

@@ -34,7 +34,7 @@ export const scrapeRequests = pgTable(
     // Tracking headers (injected by workflow-service)
     campaignId: text("campaign_id"),
     brandId: text("brand_id"),
-    workflowName: text("workflow_name"),
+    workflowSlug: text("workflow_slug"),
     featureSlug: text("feature_slug"),
 
     // Status tracking
