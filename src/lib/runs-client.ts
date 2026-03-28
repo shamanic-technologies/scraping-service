@@ -12,7 +12,7 @@ export interface IdentityContext {
   runId?: string;
   campaignId?: string;
   brandId?: string;
-  workflowName?: string;
+  workflowSlug?: string;
   featureSlug?: string;
 }
 
@@ -41,7 +41,7 @@ export interface CreateRunParams {
   taskName: string;
   brandId?: string;
   campaignId?: string;
-  workflowName?: string;
+  workflowSlug?: string;
   featureSlug?: string;
 }
 
@@ -51,7 +51,7 @@ export interface Run {
   userId: string | null;
   brandId: string | null;
   campaignId: string | null;
-  workflowName: string | null;
+  workflowSlug: string | null;
   featureSlug: string | null;
   serviceName: string;
   taskName: string;
@@ -87,8 +87,8 @@ function identityHeaders(identity: IdentityContext): Record<string, string> {
   if (identity.brandId) {
     headers["x-brand-id"] = identity.brandId;
   }
-  if (identity.workflowName) {
-    headers["x-workflow-name"] = identity.workflowName;
+  if (identity.workflowSlug) {
+    headers["x-workflow-slug"] = identity.workflowSlug;
   }
   if (identity.featureSlug) {
     headers["x-feature-slug"] = identity.featureSlug;
@@ -105,7 +105,7 @@ export async function createRun(params: CreateRunParams, identity: IdentityConte
       taskName: params.taskName,
       ...(params.brandId && { brandId: params.brandId }),
       ...(params.campaignId && { campaignId: params.campaignId }),
-      ...(params.workflowName && { workflowName: params.workflowName }),
+      ...(params.workflowSlug && { workflowSlug: params.workflowSlug }),
       ...(params.featureSlug && { featureSlug: params.featureSlug }),
     }),
   });

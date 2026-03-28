@@ -274,7 +274,7 @@
           "campaignId": {
             "type": "string"
           },
-          "workflowName": {
+          "workflowSlug": {
             "type": "string"
           },
           "featureSlug": {
@@ -435,7 +435,7 @@
           "campaignId": {
             "type": "string"
           },
-          "workflowName": {
+          "workflowSlug": {
             "type": "string"
           },
           "featureSlug": {
@@ -523,7 +523,7 @@
           "campaignId": {
             "type": "string"
           },
-          "workflowName": {
+          "workflowSlug": {
             "type": "string"
           },
           "featureSlug": {
