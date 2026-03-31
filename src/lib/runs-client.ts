@@ -11,7 +11,7 @@ export interface IdentityContext {
   userId: string;
   runId?: string;
   campaignId?: string;
-  brandId?: string;
+  brandIds?: string[];
   workflowSlug?: string;
   featureSlug?: string;
 }
@@ -39,7 +39,7 @@ async function callRunsService<T>(
 
 export interface CreateRunParams {
   taskName: string;
-  brandId?: string;
+  brandIds?: string[];
   campaignId?: string;
   workflowSlug?: string;
   featureSlug?: string;
@@ -49,7 +49,7 @@ export interface Run {
   id: string;
   organizationId: string;
   userId: string | null;
-  brandId: string | null;
+  brandIds: string[] | null;
   campaignId: string | null;
   workflowSlug: string | null;
   featureSlug: string | null;
@@ -84,8 +84,8 @@ function identityHeaders(identity: IdentityContext): Record<string, string> {
   if (identity.campaignId) {
     headers["x-campaign-id"] = identity.campaignId;
   }
-  if (identity.brandId) {
-    headers["x-brand-id"] = identity.brandId;
+  if (identity.brandIds?.length) {
+    headers["x-brand-id"] = identity.brandIds.join(",");
   }
   if (identity.workflowSlug) {
     headers["x-workflow-slug"] = identity.workflowSlug;
@@ -103,7 +103,7 @@ export async function createRun(params: CreateRunParams, identity: IdentityConte
     body: JSON.stringify({
       serviceName: "scraping-service",
       taskName: params.taskName,
-      ...(params.brandId && { brandId: params.brandId }),
+      ...(params.brandIds?.length && { brandIds: params.brandIds }),
       ...(params.campaignId && { campaignId: params.campaignId }),
       ...(params.workflowSlug && { workflowSlug: params.workflowSlug }),
       ...(params.featureSlug && { featureSlug: params.featureSlug }),

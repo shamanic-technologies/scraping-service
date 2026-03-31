@@ -26,7 +26,7 @@ describe("billing-client", () => {
       userId: "user_1",
       runId: "run_1",
       campaignId: "camp_1",
-      brandId: "brand_1",
+      brandIds: ["brand_1"],
       workflowSlug: "wf_1",
     });
 
@@ -42,6 +42,7 @@ describe("billing-client", () => {
           "x-run-id": "run_1",
           "x-campaign-id": "camp_1",
           "x-brand-id": "brand_1",
+
           "x-workflow-slug": "wf_1",
         }),
         body: JSON.stringify({

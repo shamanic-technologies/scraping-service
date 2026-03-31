@@ -30,7 +30,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    const { urls, skipCache, cacheTtlDays, brandId, campaignId, workflowSlug, featureSlug } =
+    const { urls, skipCache, cacheTtlDays, brandIds, campaignId, workflowSlug, featureSlug } =
       parsed.data;
 
     const orgId = req.orgId!;
@@ -38,7 +38,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
     const parentRunId = req.runId;
 
     const effectiveCampaignId = req.campaignId || campaignId;
-    const effectiveBrandId = req.brandId || brandId;
+    const effectiveBrandIds = req.brandIds || brandIds;
     const effectiveWorkflowSlug = req.workflowSlug || workflowSlug;
     const effectiveFeatureSlug = req.featureSlug || featureSlug;
 
@@ -109,7 +109,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         userId,
         runId: parentRunId,
         campaignId: effectiveCampaignId,
-        brandId: effectiveBrandId,
+        brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
         caller: { method: "POST", path: "/extract" },
@@ -137,7 +137,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           userId,
           runId: parentRunId,
           campaignId: effectiveCampaignId,
-          brandId: effectiveBrandId,
+          brandIds: effectiveBrandIds,
           workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
         };
@@ -172,7 +172,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       const run = await createRun(
         {
           taskName: "extract",
-          brandId: effectiveBrandId,
+          brandIds: effectiveBrandIds,
           campaignId: effectiveCampaignId,
           workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
@@ -182,7 +182,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           userId,
           runId: parentRunId,
           campaignId: effectiveCampaignId,
-          brandId: effectiveBrandId,
+          brandIds: effectiveBrandIds,
           workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
         }
@@ -277,7 +277,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         userId,
         runId,
         campaignId: effectiveCampaignId,
-        brandId: effectiveBrandId,
+        brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
       };

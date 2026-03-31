@@ -29,7 +29,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       ignoreSitemap,
       sitemapOnly,
       includeSubdomains,
-      brandId,
+      brandIds,
       campaignId,
       workflowSlug,
       featureSlug,
@@ -41,7 +41,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Headers take precedence over body fields for tracking
     const effectiveCampaignId = (req as AuthenticatedRequest).campaignId || campaignId;
-    const effectiveBrandId = (req as AuthenticatedRequest).brandId || brandId;
+    const effectiveBrandIds = (req as AuthenticatedRequest).brandIds || brandIds;
     const effectiveWorkflowSlug = (req as AuthenticatedRequest).workflowSlug || workflowSlug;
     const effectiveFeatureSlug = (req as AuthenticatedRequest).featureSlug || featureSlug;
 
@@ -55,7 +55,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         userId,
         runId: parentRunId,
         campaignId: effectiveCampaignId,
-        brandId: effectiveBrandId,
+        brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
         caller: { method: "POST", path: "/map" },
@@ -77,7 +77,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     // Authorize credits with billing-service (platform keys only)
     if (keySource === "platform") {
       try {
-        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
         const auth = await authorizeCredits(
           [{ costName: "firecrawl-map-credit", quantity: 1 }],
           "firecrawl-map-credit",
@@ -101,8 +101,8 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     let runId: string | undefined;
     try {
       const run = await createRun(
-        { taskName: "map", brandId: effectiveBrandId, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug },
-        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }
+        { taskName: "map", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug },
+        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }
       );
       runId = run.id;
     } catch (err) {
@@ -121,7 +121,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     if (!result.success) {
       if (runId) {
-        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }).catch((err) =>
+        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -135,7 +135,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
-      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandId: effectiveBrandId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
       Promise.all([
         addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),
