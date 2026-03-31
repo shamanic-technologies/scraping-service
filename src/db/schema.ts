@@ -33,7 +33,7 @@ export const scrapeRequests = pgTable(
 
     // Tracking headers (injected by workflow-service)
     campaignId: text("campaign_id"),
-    brandId: text("brand_id"),
+    brandIds: text("brand_ids").array(),
     workflowSlug: text("workflow_slug"),
     featureSlug: text("feature_slug"),
 
@@ -49,6 +49,7 @@ export const scrapeRequests = pgTable(
     index("idx_scrape_requests_source").on(table.sourceService, table.orgId),
     index("idx_scrape_requests_url").on(table.url),
     index("idx_scrape_requests_status").on(table.status),
+    index("idx_scrape_requests_brand_ids").using("gin", table.brandIds),
   ]
 );
 

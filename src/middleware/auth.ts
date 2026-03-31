@@ -6,7 +6,7 @@ export interface AuthenticatedRequest extends Request {
   userId?: string;
   runId?: string;
   campaignId?: string;
-  brandId?: string;
+  brandIds?: string[];
   workflowSlug?: string;
   featureSlug?: string;
 }
@@ -63,7 +63,11 @@ export function serviceAuth(
 
   // Extract optional tracking headers (injected by workflow-service)
   req.campaignId = req.headers["x-campaign-id"] as string | undefined;
-  req.brandId = req.headers["x-brand-id"] as string | undefined;
+  // x-brand-id is CSV (e.g. "uuid1,uuid2,uuid3")
+  const rawBrandId = req.headers["x-brand-id"] as string | undefined;
+  req.brandIds = rawBrandId
+    ? String(rawBrandId).split(",").map((s) => s.trim()).filter(Boolean)
+    : undefined;
   req.workflowSlug = req.headers["x-workflow-slug"] as string | undefined;
   req.featureSlug = req.headers["x-feature-slug"] as string | undefined;
 

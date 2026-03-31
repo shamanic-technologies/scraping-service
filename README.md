@@ -14,7 +14,7 @@ All endpoints (except `/`, `/health`, and `/openapi.json`) require these headers
 Optional tracking headers (injected automatically by workflow-service):
 
 - `X-Campaign-Id` — campaign identifier (stored in DB, forwarded to downstream services)
-- `X-Brand-Id` — brand identifier (stored in DB, forwarded to downstream services)
+- `X-Brand-Id` — comma-separated brand UUIDs, e.g. `uuid1,uuid2,uuid3` (stored as array in DB, forwarded to downstream services)
 - `X-Workflow-Slug` — slug of the executing workflow (stored in DB, forwarded to downstream services)
 - `X-Feature-Slug` — feature identifier (stored in DB, forwarded to downstream services)
 
@@ -38,7 +38,7 @@ Optional tracking headers (injected automatically by workflow-service):
   "sourceRefId": "ref_456",
   "skipCache": false,
   "options": {},
-  "brandId": "brand_1",
+  "brandIds": ["brand_1"],
   "campaignId": "campaign_2",
   "workflowSlug": "gtm-outbound",
   "featureSlug": "press-outreach"
@@ -57,7 +57,7 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`. 
   "ignoreSitemap": false,
   "sitemapOnly": false,
   "includeSubdomains": false,
-  "brandId": "brand_1",
+  "brandIds": ["brand_1"],
   "campaignId": "campaign_2",
   "workflowSlug": "gtm-outbound",
   "featureSlug": "press-outreach"
@@ -78,7 +78,7 @@ Extracts article metadata (authors, publication date) from up to 10 URLs using F
   ],
   "skipCache": false,
   "cacheTtlDays": 180,
-  "brandId": "brand_1",
+  "brandIds": ["brand_1"],
   "campaignId": "campaign_2",
   "workflowSlug": "journalist-outreach",
   "featureSlug": "press-outreach"
@@ -152,7 +152,7 @@ npm run dev
 
 Uses PostgreSQL via Drizzle ORM. Tables:
 
-- **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, `campaign_id`, `brand_id`, `workflow_slug`, `feature_slug`, timestamps)
+- **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, `campaign_id`, `brand_ids` text[] array, `workflow_slug`, `feature_slug`, timestamps)
 - **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
 - **scrape_cache** - URL-based cache lookup with TTL
 - **extract_cache** - LLM extraction cache (authors, publishedAt) with 7-day TTL

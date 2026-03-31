@@ -76,7 +76,10 @@ function createApp(routes: express.Router) {
     req.userId = "user_test";
     req.runId = "run_test";
     req.campaignId = req.headers["x-campaign-id"] || undefined;
-    req.brandId = req.headers["x-brand-id"] || undefined;
+    const rawBrandId = req.headers["x-brand-id"] as string | undefined;
+        req.brandIds = rawBrandId
+          ? String(rawBrandId).split(",").map((s: string) => s.trim()).filter(Boolean)
+          : undefined;
     req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
     next();
   });
@@ -188,7 +191,7 @@ describe("Billing authorization", () => {
         "firecrawl-scrape-credit",
         expect.objectContaining({
           campaignId: "camp_1",
-          brandId: "brand_1",
+          brandIds: ["brand_1"],
           workflowSlug: "wf_1",
         })
       );

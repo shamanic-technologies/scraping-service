@@ -60,7 +60,7 @@ describe("runs-client", () => {
       });
 
       await createRun(
-        { taskName: "scrape", brandId: "brand_1", campaignId: "campaign_2", workflowSlug: "gtm-outbound" },
+        { taskName: "scrape", brandIds: ["brand_1"], campaignId: "campaign_2", workflowSlug: "gtm-outbound" },
         { orgId: "org_abc", userId: "user_123", runId: "550e8400-e29b-41d4-a716-446655440000" }
       );
 
@@ -69,7 +69,7 @@ describe("runs-client", () => {
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(body).not.toHaveProperty("parentRunId");
-      expect(body.brandId).toBe("brand_1");
+      expect(body.brandIds).toEqual(["brand_1"]);
       expect(body.campaignId).toBe("campaign_2");
       expect(body.workflowSlug).toBe("gtm-outbound");
     });
@@ -89,7 +89,7 @@ describe("runs-client", () => {
       expect(headers).not.toHaveProperty("x-run-id");
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-      expect(body).not.toHaveProperty("brandId");
+      expect(body).not.toHaveProperty("brandIds");
       expect(body).not.toHaveProperty("campaignId");
       expect(body).not.toHaveProperty("workflowSlug");
     });

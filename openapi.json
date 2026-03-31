@@ -268,8 +268,11 @@
           "options": {
             "$ref": "#/components/schemas/ScrapeOptions"
           },
-          "brandId": {
-            "type": "string"
+          "brandIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "campaignId": {
             "type": "string"
@@ -429,8 +432,11 @@
             "minimum": 1,
             "maximum": 365
           },
-          "brandId": {
-            "type": "string"
+          "brandIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "campaignId": {
             "type": "string"
@@ -517,8 +523,11 @@
           "includeSubdomains": {
             "type": "boolean"
           },
-          "brandId": {
-            "type": "string"
+          "brandIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "campaignId": {
             "type": "string"

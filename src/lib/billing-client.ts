@@ -47,7 +47,7 @@ export async function authorizeCredits(
 
   if (identity.runId) headers["x-run-id"] = identity.runId;
   if (identity.campaignId) headers["x-campaign-id"] = identity.campaignId;
-  if (identity.brandId) headers["x-brand-id"] = identity.brandId;
+  if (identity.brandIds?.length) headers["x-brand-id"] = identity.brandIds.join(",");
   if (identity.workflowSlug) headers["x-workflow-slug"] = identity.workflowSlug;
   if (identity.featureSlug) headers["x-feature-slug"] = identity.featureSlug;
 

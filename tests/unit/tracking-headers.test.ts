@@ -75,14 +75,14 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       app.post("/echo", (req: any, res) => {
         res.json({
           campaignId: req.campaignId,
-          brandId: req.brandId,
+          brandIds: req.brandIds,
           workflowSlug: req.workflowSlug,
           featureSlug: req.featureSlug,
         });
       });
     });
 
-    it("should extract tracking headers when present", async () => {
+    it("should extract tracking headers when present (single brand)", async () => {
       const response = await request(app)
         .post("/echo")
         .set("X-API-Key", "test-key")
@@ -97,9 +97,37 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
 
       expect(response.status).toBe(200);
       expect(response.body.campaignId).toBe("camp_123");
-      expect(response.body.brandId).toBe("brand_456");
+      expect(response.body.brandIds).toEqual(["brand_456"]);
       expect(response.body.workflowSlug).toBe("gtm-outbound");
       expect(response.body.featureSlug).toBe("feature_789");
+    });
+
+    it("should parse CSV x-brand-id header into brandIds array", async () => {
+      const response = await request(app)
+        .post("/echo")
+        .set("X-API-Key", "test-key")
+        .set("X-Org-Id", "org_1")
+        .set("X-User-Id", "user_1")
+        .set("X-Run-Id", "run_1")
+        .set("X-Brand-Id", "brand_1,brand_2,brand_3")
+        .send({});
+
+      expect(response.status).toBe(200);
+      expect(response.body.brandIds).toEqual(["brand_1", "brand_2", "brand_3"]);
+    });
+
+    it("should trim whitespace in CSV brand IDs", async () => {
+      const response = await request(app)
+        .post("/echo")
+        .set("X-API-Key", "test-key")
+        .set("X-Org-Id", "org_1")
+        .set("X-User-Id", "user_1")
+        .set("X-Run-Id", "run_1")
+        .set("X-Brand-Id", " brand_1 , brand_2 ")
+        .send({});
+
+      expect(response.status).toBe(200);
+      expect(response.body.brandIds).toEqual(["brand_1", "brand_2"]);
     });
 
     it("should not break when tracking headers are absent", async () => {
@@ -113,7 +141,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
 
       expect(response.status).toBe(200);
       expect(response.body.campaignId).toBeUndefined();
-      expect(response.body.brandId).toBeUndefined();
+      expect(response.body.brandIds).toBeUndefined();
       expect(response.body.workflowSlug).toBeUndefined();
       expect(response.body.featureSlug).toBeUndefined();
     });
@@ -132,7 +160,10 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         req.userId = "user_test";
         req.runId = "run_test";
         req.campaignId = req.headers["x-campaign-id"] || undefined;
-        req.brandId = req.headers["x-brand-id"] || undefined;
+        const rawBrandId = req.headers["x-brand-id"] as string | undefined;
+        req.brandIds = rawBrandId
+          ? String(rawBrandId).split(",").map((s: string) => s.trim()).filter(Boolean)
+          : undefined;
         req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
@@ -152,13 +183,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(mockCreateRun).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "camp_abc",
-          brandId: "brand_def",
+          brandIds: ["brand_def"],
           workflowSlug: "research-flow",
           featureSlug: "slug_abc",
         }),
         expect.objectContaining({
           campaignId: "camp_abc",
-          brandId: "brand_def",
+          brandIds: ["brand_def"],
           workflowSlug: "research-flow",
           featureSlug: "slug_abc",
         })
@@ -177,7 +208,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "camp_key",
-          brandId: "brand_key",
+          brandIds: ["brand_key"],
           workflowSlug: "key-flow",
           featureSlug: "slug_key",
         })
@@ -192,13 +223,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(mockCreateRun).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: undefined,
-          brandId: undefined,
+          brandIds: undefined,
           workflowSlug: undefined,
           featureSlug: undefined,
         }),
         expect.objectContaining({
           campaignId: undefined,
-          brandId: undefined,
+          brandIds: undefined,
           workflowSlug: undefined,
           featureSlug: undefined,
         })
@@ -219,7 +250,10 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         req.userId = "user_test";
         req.runId = "run_test";
         req.campaignId = req.headers["x-campaign-id"] || undefined;
-        req.brandId = req.headers["x-brand-id"] || undefined;
+        const rawBrandId = req.headers["x-brand-id"] as string | undefined;
+        req.brandIds = rawBrandId
+          ? String(rawBrandId).split(",").map((s: string) => s.trim()).filter(Boolean)
+          : undefined;
         req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
@@ -237,7 +271,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .send({
           url: "https://example.com",
           campaignId: "body-campaign",
-          brandId: "body-brand",
+          brandIds: ["body-brand"],
           workflowSlug: "body-workflow",
           featureSlug: "body-slug",
         });
@@ -245,7 +279,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(mockCreateRun).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "header-campaign",
-          brandId: "header-brand",
+          brandIds: ["header-brand"],
           workflowSlug: "header-workflow",
           featureSlug: "header-slug",
         }),
@@ -259,7 +293,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .send({
           url: "https://example.com",
           campaignId: "body-campaign",
-          brandId: "body-brand",
+          brandIds: ["body-brand"],
           workflowSlug: "body-workflow",
           featureSlug: "body-slug",
         });
@@ -267,7 +301,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(mockCreateRun).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "body-campaign",
-          brandId: "body-brand",
+          brandIds: ["body-brand"],
           workflowSlug: "body-workflow",
           featureSlug: "body-slug",
         }),
@@ -289,7 +323,10 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         req.userId = "user_test";
         req.runId = "run_test";
         req.campaignId = req.headers["x-campaign-id"] || undefined;
-        req.brandId = req.headers["x-brand-id"] || undefined;
+        const rawBrandId = req.headers["x-brand-id"] as string | undefined;
+        req.brandIds = rawBrandId
+          ? String(rawBrandId).split(",").map((s: string) => s.trim()).filter(Boolean)
+          : undefined;
         req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
         next();
@@ -329,13 +366,13 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(mockCreateRun).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "camp_scrape",
-          brandId: "brand_scrape",
+          brandIds: ["brand_scrape"],
           workflowSlug: "scrape-flow",
           featureSlug: "slug_scrape",
         }),
         expect.objectContaining({
           campaignId: "camp_scrape",
-          brandId: "brand_scrape",
+          brandIds: ["brand_scrape"],
           workflowSlug: "scrape-flow",
           featureSlug: "slug_scrape",
         })
@@ -354,7 +391,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "camp_db",
-          brandId: "brand_db",
+          brandIds: ["brand_db"],
           workflowSlug: "db-flow",
           featureSlug: "slug_db",
         })
@@ -373,9 +410,25 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "camp_key_s",
-          brandId: "brand_key_s",
+          brandIds: ["brand_key_s"],
           workflowSlug: "key-flow-s",
           featureSlug: "slug_key_s",
+        })
+      );
+    });
+
+    it("should forward multi-brand CSV header correctly", async () => {
+      await request(app)
+        .post("/scrape")
+        .set("X-Brand-Id", "brand_a,brand_b,brand_c")
+        .send({ url: "https://example.com" });
+
+      expect(mockCreateRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandIds: ["brand_a", "brand_b", "brand_c"],
+        }),
+        expect.objectContaining({
+          brandIds: ["brand_a", "brand_b", "brand_c"],
         })
       );
     });
