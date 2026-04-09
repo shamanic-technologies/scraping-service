@@ -111,7 +111,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     const options: MapOptions = {
       search,
-      limit, // Already capped at 500 by schema max
+      limit,
       ignoreSitemap,
       sitemapOnly,
       includeSubdomains,
