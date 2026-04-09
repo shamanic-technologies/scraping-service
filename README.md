@@ -26,7 +26,7 @@ Optional tracking headers (injected automatically by workflow-service):
 | `POST` | `/scrape` | Scrape a URL and extract company info |
 | `GET` | `/scrape/:id` | Get a scrape result by ID |
 | `GET` | `/scrape/by-url?url=` | Get cached result by URL |
-| `POST` | `/map` | Discover all URLs on a website (max 500) |
+| `POST` | `/map` | Discover all URLs on a website |
 | `POST` | `/extract` | Extract article metadata (authors, date) via LLM |
 
 ### POST /scrape
@@ -53,7 +53,7 @@ Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`. 
 {
   "url": "https://example.com",
   "search": "about",
-  "limit": 100,
+  "limit": 50,
   "ignoreSitemap": false,
   "sitemapOnly": false,
   "includeSubdomains": false,

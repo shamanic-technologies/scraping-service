@@ -510,9 +510,7 @@
           },
           "limit": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 500,
-            "default": 100
+            "minimum": 1
           },
           "ignoreSitemap": {
             "type": "boolean"
