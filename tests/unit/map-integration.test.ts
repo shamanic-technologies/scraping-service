@@ -76,13 +76,17 @@ describe("/map endpoint", () => {
       expect(response.body.count).toBe(3);
     });
 
-    it("should reject limit above 500", async () => {
+    it("should accept limit above 500 (no hidden cap)", async () => {
+      vi.mocked(mapUrl).mockResolvedValueOnce({
+        success: true,
+        urls: ["https://example.com/a"],
+      });
+
       const response = await request(app)
         .post("/map")
         .send({ url: "https://example.com", limit: 1000 });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe("Invalid request");
+      expect(response.status).toBe(200);
     });
 
     it("should return 500 when map fails", async () => {

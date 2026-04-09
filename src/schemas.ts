@@ -165,7 +165,7 @@ export const MapRequestSchema = z
   .object({
     url: z.string().url(),
     search: z.string().optional(),
-    limit: z.number().int().min(1).max(500).optional().default(100),
+    limit: z.number().int().min(1).optional(),
     ignoreSitemap: z.boolean().optional(),
     sitemapOnly: z.boolean().optional(),
     includeSubdomains: z.boolean().optional(),

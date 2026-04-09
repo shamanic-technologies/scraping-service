@@ -264,7 +264,7 @@ export async function mapUrl(
       ignoreSitemap: options.ignoreSitemap,
       sitemapOnly: options.sitemapOnly,
       includeSubdomains: options.includeSubdomains ?? false,
-      limit: options.limit || 100,
+      limit: options.limit,
     });
 
     if (!result.success) {
