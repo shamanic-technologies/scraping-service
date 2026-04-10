@@ -260,7 +260,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/scrape",
-  summary: "Scrape a URL and extract company information",
+  summary: "Scrape a URL and extract company information (provider: scrape-do | firecrawl)",
   security: [{ apiKey: [] }],
   request: {
     body: {
