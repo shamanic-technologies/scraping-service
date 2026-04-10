@@ -15,7 +15,7 @@ const document = generator.generateDocument({
   info: {
     title: "Scraping Service",
     description:
-      "URL scraping service using Firecrawl - extracts company information from websites",
+      "URL scraping service with multi-provider support (Scrape.do default, Firecrawl) - extracts company information from websites",
     version: "0.1.0",
   },
   servers: [

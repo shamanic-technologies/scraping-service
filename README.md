@@ -1,6 +1,6 @@
 # Scraping Service
 
-URL scraping microservice powered by [Firecrawl](https://firecrawl.dev). Extracts company information from websites with built-in caching (7-day TTL). Firecrawl API keys are auto-resolved per-request via key-service — the org's own key or the platform key is used based on the org's provider preference.
+URL scraping microservice with multi-provider support. Extracts company information from websites with built-in caching (7-day TTL). Supports [Scrape.do](https://scrape.do) (default) and [Firecrawl](https://firecrawl.dev) as scraping providers. `/map` and `/extract` endpoints remain Firecrawl-only. Provider API keys are auto-resolved per-request via key-service — the org's own key or the platform key is used based on the org's provider preference.
 
 ## API Endpoints
 
@@ -34,6 +34,7 @@ Optional tracking headers (injected automatically by workflow-service):
 ```json
 {
   "url": "https://example.com",
+  "provider": "scrape-do",
   "sourceService": "campaign",
   "sourceRefId": "ref_456",
   "skipCache": false,
@@ -45,7 +46,9 @@ Optional tracking headers (injected automatically by workflow-service):
 }
 ```
 
-Returns `{ cached: boolean, requestId: string, runId: string, result: {...} }`. Returns `402` with `{ error, balance_cents, required_cents }` when the org has insufficient credits (platform key only; BYOK skips billing check).
+`provider` is optional — defaults to `"scrape-do"`. Accepted values: `"scrape-do"`, `"firecrawl"`.
+
+Returns `{ cached: boolean, provider: string, requestId: string, runId: string, result: {...} }`. Returns `402` with `{ error, balance_cents, required_cents }` when the org has insufficient credits (platform key only; BYOK skips billing check).
 
 ### POST /map
 
@@ -152,7 +155,7 @@ npm run dev
 
 Uses PostgreSQL via Drizzle ORM. Tables:
 
-- **scrape_requests** - Tracks incoming scrape requests (status, source, `run_id` from RunsService, `campaign_id`, `brand_ids` text[] array, `workflow_slug`, `feature_slug`, timestamps)
+- **scrape_requests** - Tracks incoming scrape requests (status, source, `provider`, `run_id` from RunsService, `campaign_id`, `brand_ids` text[] array, `workflow_slug`, `feature_slug`, timestamps)
 - **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
 - **scrape_cache** - URL-based cache lookup with TTL
 - **extract_cache** - LLM extraction cache (authors, publishedAt) with 7-day TTL

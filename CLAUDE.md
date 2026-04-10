@@ -1,6 +1,6 @@
 # Project: scraping-service
 
-URL scraping microservice powered by Firecrawl. Extracts company information from websites with built-in caching (7-day TTL).
+URL scraping microservice with multi-provider support (Scrape.do default, Firecrawl). Extracts company information from websites with built-in caching (7-day TTL). `/map` and `/extract` remain Firecrawl-only.
 
 ## Commands
 

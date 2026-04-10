@@ -26,6 +26,7 @@ export const scrapeRequests = pgTable(
 
     // Request details
     url: text("url").notNull(),
+    provider: text("provider").notNull(), // 'firecrawl' | 'scrape-do'
     options: jsonb("options"), // { formats: ['markdown'], ... }
 
     // RunsService run ID

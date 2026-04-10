@@ -2,12 +2,27 @@ import { Router } from "express";
 import { eq, and, gt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { scrapeRequests, scrapeResults, scrapeCache } from "../db/schema.js";
-import { scrapeUrl, normalizeUrl } from "../lib/firecrawl.js";
+import { scrapeUrl, normalizeUrl, ScrapeResponse as FirecrawlScrapeResponse } from "../lib/firecrawl.js";
+import { scrapeUrlWithScrapeDo } from "../lib/scrape-do.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
-import { ScrapeRequestSchema } from "../schemas.js";
+import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
+
+const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
+
+/** Map provider name to key-service provider identifier */
+const PROVIDER_KEY_NAME: Record<ScrapingProvider, string> = {
+  "scrape-do": "scrape-do",
+  firecrawl: "firecrawl",
+};
+
+/** Map provider name to cost name for billing/runs */
+const PROVIDER_COST_NAME: Record<ScrapingProvider, string> = {
+  "scrape-do": "scrape-do-scrape-credit",
+  firecrawl: "firecrawl-scrape-credit",
+};
 
 const router = Router();
 
@@ -30,6 +45,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
 
     const {
       url,
+      provider: requestedProvider,
       sourceService,
       sourceRefId,
       options,
@@ -39,6 +55,8 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       workflowSlug,
       featureSlug,
     } = parsed.data;
+
+    const provider: ScrapingProvider = requestedProvider ?? DEFAULT_PROVIDER;
 
     const orgId = (req as AuthenticatedRequest).orgId!;
     const userId = (req as AuthenticatedRequest).userId!;
@@ -77,12 +95,12 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       }
     }
 
-    // Resolve Firecrawl key via key-service (auto-resolves org/platform source)
-    let firecrawlApiKey: string;
+    // Resolve provider API key via key-service (auto-resolves org/platform source)
+    let providerApiKey: string;
     let keySource: "org" | "platform";
     try {
       const decrypted = await resolveKey({
-        provider: "firecrawl",
+        provider: PROVIDER_KEY_NAME[provider],
         orgId,
         userId,
         runId: parentRunId,
@@ -92,27 +110,28 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         featureSlug: effectiveFeatureSlug,
         caller: { method: "POST", path: "/scrape" },
       });
-      firecrawlApiKey = decrypted.key;
+      providerApiKey = decrypted.key;
       keySource = decrypted.keySource;
     } catch (err) {
       if (err instanceof KeyServiceError) {
         const status = err.statusCode === 404 ? 400 : 502;
         const message =
           err.statusCode === 404
-            ? "Firecrawl API key not configured"
-            : "Failed to retrieve Firecrawl API key";
+            ? `${provider} API key not configured`
+            : `Failed to retrieve ${provider} API key`;
         return res.status(status).json({ error: message });
       }
       throw err;
     }
 
     // Authorize credits with billing-service (platform keys only)
+    const costName = PROVIDER_COST_NAME[provider];
     if (keySource === "platform") {
       try {
         const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
         const auth = await authorizeCredits(
-          [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
-          "firecrawl-scrape-credit",
+          [{ costName, quantity: 1 }],
+          costName,
           billingIdentity
         );
         if (!auth.sufficient) {
@@ -154,13 +173,16 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
         url,
+        provider,
         options: options as any,
         status: "processing",
       })
       .returning();
 
-    // Scrape the URL
-    const scrapeResponse = await scrapeUrl(url, firecrawlApiKey, options || {});
+    // Scrape the URL using the selected provider
+    const scrapeResponse = provider === "firecrawl"
+      ? await scrapeUrl(url, providerApiKey, options || {})
+      : await scrapeUrlWithScrapeDo(url, providerApiKey, options || {});
 
     if (!scrapeResponse.success) {
       // Update request as failed
@@ -259,13 +281,14 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     if (runId) {
       const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
       Promise.all([
-        addCosts(runId, [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: keySource }], runIdentity),
+        addCosts(runId, [{ costName: costName, quantity: 1, costSource: keySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
 
     res.json({
       cached: false,
+      provider,
       requestId: request.id,
       runId,
       result: formatResult(result),

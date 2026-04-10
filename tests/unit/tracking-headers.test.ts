@@ -20,6 +20,14 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
   ),
 }));
 
+// Mock scrape-do
+vi.mock("../../src/lib/scrape-do.js", () => ({
+  scrapeUrlWithScrapeDo: vi.fn().mockResolvedValue({
+    success: true,
+    markdown: "# Test",
+  }),
+}));
+
 // Mock runs-client to capture createRun calls
 const mockCreateRun = vi.fn().mockResolvedValue({ id: "own-run-id" });
 const mockUpdateRunStatus = vi.fn().mockResolvedValue({ id: "own-run-id", status: "completed" });

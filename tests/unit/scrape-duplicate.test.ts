@@ -19,6 +19,12 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
   ),
 }));
 
+// Mock scrape-do
+const mockScrapeUrlWithScrapeDo = vi.fn();
+vi.mock("../../src/lib/scrape-do.js", () => ({
+  scrapeUrlWithScrapeDo: (...args: any[]) => mockScrapeUrlWithScrapeDo(...args),
+}));
+
 // Mock db module with chainable insert/update/query
 const mockReturning = vi.fn();
 const mockOnConflictDoUpdate = vi.fn(() => ({ returning: mockReturning }));
@@ -89,11 +95,10 @@ describe("POST /scrape - duplicate URL handling", () => {
   });
 
   it("should use onConflictDoUpdate when inserting scrape results", async () => {
-    vi.mocked(scrapeUrl).mockResolvedValueOnce({
+    mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
       success: true,
       markdown: "# MCP Factory",
-      metadata: { title: "MCP Factory", description: "Test" },
-    } as any);
+    });
 
     const response = await request(app).post("/scrape").send({
       url: "https://mcpfactory.org",
@@ -110,19 +115,18 @@ describe("POST /scrape - duplicate URL handling", () => {
       expect.objectContaining({
         target: scrapeResults.normalizedUrl,
         set: expect.objectContaining({
-          companyName: "MCP Factory",
-          description: "Test",
+          companyName: null,
+          description: null,
         }),
       })
     );
   });
 
   it("should use onConflictDoUpdate for scrape cache too", async () => {
-    vi.mocked(scrapeUrl).mockResolvedValueOnce({
+    mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
       success: true,
       markdown: "# MCP Factory",
-      metadata: { title: "MCP Factory" },
-    } as any);
+    });
 
     await request(app).post("/scrape").send({
       url: "https://mcpfactory.org",
