@@ -31,6 +31,14 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
   ),
 }));
 
+// Mock scrape-do
+vi.mock("../../src/lib/scrape-do.js", () => ({
+  scrapeUrlWithScrapeDo: vi.fn().mockResolvedValue({
+    success: true,
+    markdown: "# Test",
+  }),
+}));
+
 // Mock runs-client
 const mockCreateRun = vi.fn().mockResolvedValue({ id: "run-id" });
 const mockUpdateRunStatus = vi.fn().mockResolvedValue({ id: "run-id", status: "completed" });
@@ -91,8 +99,10 @@ describe("Billing authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default: platform key
-    mockResolveKey.mockResolvedValue({ provider: "firecrawl", key: "test-key", keySource: "platform" });
+    // Default: platform key (provider echoes whatever was requested)
+    mockResolveKey.mockImplementation((params: any) =>
+      Promise.resolve({ provider: params.provider, key: "test-key", keySource: "platform" })
+    );
 
     // Default: sufficient credits (billing-service resolves price, returns required_cents)
     mockAuthorizeCredits.mockResolvedValue({ sufficient: true, balance_cents: 500, required_cents: 3, billing_mode: "payg" });
@@ -123,8 +133,8 @@ describe("Billing authorization", () => {
 
       expect(res.status).toBe(200);
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
-        "firecrawl-scrape-credit",
+        [{ costName: "scrape-do-scrape-credit", quantity: 1 }],
+        "scrape-do-scrape-credit",
         expect.objectContaining({
           orgId: "org_test",
           userId: "user_test",
@@ -150,7 +160,9 @@ describe("Billing authorization", () => {
     });
 
     it("should skip billing authorization when keySource is org (BYOK)", async () => {
-      mockResolveKey.mockResolvedValue({ provider: "firecrawl", key: "user-key", keySource: "org" });
+      mockResolveKey.mockImplementation((params: any) =>
+        Promise.resolve({ provider: params.provider, key: "user-key", keySource: "org" })
+      );
 
       const app = createApp(scrapeRoutes);
 
@@ -187,8 +199,8 @@ describe("Billing authorization", () => {
         .send({ url: "https://example.com" });
 
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
-        "firecrawl-scrape-credit",
+        [{ costName: "scrape-do-scrape-credit", quantity: 1 }],
+        "scrape-do-scrape-credit",
         expect.objectContaining({
           campaignId: "camp_1",
           brandIds: ["brand_1"],
@@ -233,7 +245,9 @@ describe("Billing authorization", () => {
     });
 
     it("should skip billing authorization when keySource is org (BYOK)", async () => {
-      mockResolveKey.mockResolvedValue({ provider: "firecrawl", key: "user-key", keySource: "org" });
+      mockResolveKey.mockImplementation((params: any) =>
+        Promise.resolve({ provider: params.provider, key: "user-key", keySource: "org" })
+      );
 
       const app = createApp(mapRoutes);
 

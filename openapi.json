@@ -60,6 +60,13 @@
           "error"
         ]
       },
+      "ScrapingProvider": {
+        "type": "string",
+        "enum": [
+          "scrape-do",
+          "firecrawl"
+        ]
+      },
       "ScrapeResult": {
         "type": "object",
         "properties": {
@@ -158,6 +165,9 @@
           "cached": {
             "type": "boolean"
           },
+          "provider": {
+            "$ref": "#/components/schemas/ScrapingProvider"
+          },
           "requestId": {
             "type": "string"
           },
@@ -254,6 +264,9 @@
           "url": {
             "type": "string",
             "format": "uri"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ScrapingProvider"
           },
           "sourceService": {
             "type": "string"
