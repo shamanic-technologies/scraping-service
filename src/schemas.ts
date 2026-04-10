@@ -17,6 +17,9 @@ registry.registerComponent("securitySchemes", "apiKey", {
 
 // --- Shared ---
 
+export const ScrapingProviderSchema = z.enum(["scrape-do", "firecrawl"]).openapi("ScrapingProvider");
+export type ScrapingProvider = z.infer<typeof ScrapingProviderSchema>;
+
 const ErrorResponseSchema = z
   .object({
     error: z.string(),
@@ -41,6 +44,7 @@ const ScrapeOptionsSchema = z
 export const ScrapeRequestSchema = z
   .object({
     url: z.string().url(),
+    provider: ScrapingProviderSchema.optional(),
     sourceService: z.string().optional(),
     sourceRefId: z.string().optional(),
     skipCache: z.boolean().optional().default(false),
@@ -80,6 +84,7 @@ const ScrapeResultSchema = z
 const ScrapeResponseSchema = z
   .object({
     cached: z.boolean(),
+    provider: ScrapingProviderSchema.optional(),
     requestId: z.string().optional(),
     runId: z.string().optional(),
     result: ScrapeResultSchema,
@@ -255,7 +260,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/scrape",
-  summary: "Scrape a URL and extract company information",
+  summary: "Scrape a URL and extract company information (provider: scrape-do | firecrawl)",
   security: [{ apiKey: [] }],
   request: {
     body: {

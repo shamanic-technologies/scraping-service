@@ -1,7 +1,7 @@
 {
   "name": "scraping-service",
   "version": "0.1.0",
-  "description": "URL scraping service using Firecrawl - extracts company information",
+  "description": "URL scraping service with multi-provider support (Scrape.do, Firecrawl) - extracts company information",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",

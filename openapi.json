@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Scraping Service",
-    "description": "URL scraping service using Firecrawl - extracts company information from websites",
+    "description": "URL scraping service with multi-provider support (Scrape.do default, Firecrawl) - extracts company information from websites",
     "version": "0.1.0"
   },
   "servers": [
@@ -58,6 +58,13 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "ScrapingProvider": {
+        "type": "string",
+        "enum": [
+          "scrape-do",
+          "firecrawl"
         ]
       },
       "ScrapeResult": {
@@ -158,6 +165,9 @@
           "cached": {
             "type": "boolean"
           },
+          "provider": {
+            "$ref": "#/components/schemas/ScrapingProvider"
+          },
           "requestId": {
             "type": "string"
           },
@@ -254,6 +264,9 @@
           "url": {
             "type": "string",
             "format": "uri"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ScrapingProvider"
           },
           "sourceService": {
             "type": "string"
@@ -608,7 +621,7 @@
     },
     "/scrape": {
       "post": {
-        "summary": "Scrape a URL and extract company information",
+        "summary": "Scrape a URL and extract company information (provider: scrape-do | firecrawl)",
         "security": [
           {
             "apiKey": []

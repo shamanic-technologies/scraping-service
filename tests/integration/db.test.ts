@@ -19,6 +19,7 @@ describe("database schema", () => {
         sourceService: "test-service",
         orgId: "org_test123",
         url: "https://example.com",
+        provider: "scrape-do",
         status: "pending",
       })
       .returning();
@@ -42,6 +43,7 @@ describe("database schema", () => {
         sourceService: "test-service",
         orgId: "org_test123",
         url: "https://example.com",
+        provider: "scrape-do",
         runId: "run_abc123",
         status: "processing",
       })
@@ -63,6 +65,7 @@ describe("database schema", () => {
         sourceService: "test-service",
         orgId: "org_test123",
         url: "https://example.com",
+        provider: "scrape-do",
         status: "completed",
       })
       .returning();
