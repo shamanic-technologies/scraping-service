@@ -26,6 +26,20 @@ describe("drizzle migrations", () => {
     expect(sqlFiles.length).toBeGreaterThan(0);
   });
 
+  it("migration 0008 uses idempotent ADD COLUMN (IF NOT EXISTS guard)", () => {
+    const sql = readFileSync(
+      join(drizzleDir, "0008_wet_firestar.sql"),
+      "utf-8"
+    );
+    // Must NOT contain a bare ALTER TABLE ... ADD COLUMN (non-idempotent)
+    expect(sql).not.toMatch(
+      /^ALTER TABLE.*ADD COLUMN/m
+    );
+    // Must use IF NOT EXISTS guard
+    expect(sql).toContain("IF NOT EXISTS");
+    expect(sql).toContain('column_name = \'provider\'');
+  });
+
   it("each journal entry has a matching SQL file", () => {
     const journal = JSON.parse(
       readFileSync(join(metaDir, "_journal.json"), "utf-8")
