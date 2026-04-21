@@ -19,10 +19,10 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
   ),
 }));
 
-// Mock scrape-do
-const mockScrapeUrlWithScrapeDo = vi.fn();
-vi.mock("../../src/lib/scrape-do.js", () => ({
-  scrapeUrlWithScrapeDo: (...args: any[]) => mockScrapeUrlWithScrapeDo(...args),
+// Mock scrape-chain (used by scrape route instead of scrape-do directly)
+const mockScrapeWithEscalation = vi.fn();
+vi.mock("../../src/lib/scrape-chain.js", () => ({
+  scrapeWithEscalation: (...args: any[]) => mockScrapeWithEscalation(...args),
 }));
 
 // Mock db module with chainable insert/update/query
@@ -95,9 +95,12 @@ describe("POST /scrape - duplicate URL handling", () => {
   });
 
   it("should use onConflictDoUpdate when inserting scrape results", async () => {
-    mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
-      success: true,
-      markdown: "# MCP Factory",
+    mockScrapeWithEscalation.mockResolvedValueOnce({
+      response: { success: true, markdown: "# MCP Factory" },
+      costName: "scrape-do-scrape-credit",
+      levelName: "scrape-do-basic",
+      provider: "scrape-do",
+      keySource: "platform",
     });
 
     const response = await request(app).post("/scrape").send({
@@ -123,9 +126,12 @@ describe("POST /scrape - duplicate URL handling", () => {
   });
 
   it("should use onConflictDoUpdate for scrape cache too", async () => {
-    mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
-      success: true,
-      markdown: "# MCP Factory",
+    mockScrapeWithEscalation.mockResolvedValueOnce({
+      response: { success: true, markdown: "# MCP Factory" },
+      costName: "scrape-do-scrape-credit",
+      levelName: "scrape-do-basic",
+      provider: "scrape-do",
+      keySource: "platform",
     });
 
     await request(app).post("/scrape").send({

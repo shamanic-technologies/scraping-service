@@ -136,4 +136,77 @@ describe("scrapeUrlWithScrapeDo", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("Network error");
   });
+
+  describe("ScrapeDoOverrides", () => {
+    it("should set render=true when overrides.render is true", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200 })
+      );
+
+      await scrapeUrlWithScrapeDo("https://example.com", "token", {}, { render: true });
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.get("render")).toBe("true");
+    });
+
+    it("should set super=true when overrides.super is true", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200 })
+      );
+
+      await scrapeUrlWithScrapeDo("https://example.com", "token", {}, { super: true });
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.get("super")).toBe("true");
+    });
+
+    it("should set waitUntil and customWait when provided", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200 })
+      );
+
+      await scrapeUrlWithScrapeDo("https://example.com", "token", {}, {
+        waitUntil: "networkidle0",
+        customWait: 3000,
+      });
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.get("waitUntil")).toBe("networkidle0");
+      expect(calledUrl.searchParams.get("customWait")).toBe("3000");
+    });
+
+    it("should set all overrides together", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200 })
+      );
+
+      await scrapeUrlWithScrapeDo("https://example.com", "token", {}, {
+        render: true,
+        super: true,
+        waitUntil: "networkidle0",
+        customWait: 3000,
+      });
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.get("render")).toBe("true");
+      expect(calledUrl.searchParams.get("super")).toBe("true");
+      expect(calledUrl.searchParams.get("waitUntil")).toBe("networkidle0");
+      expect(calledUrl.searchParams.get("customWait")).toBe("3000");
+    });
+
+    it("should not set override params when overrides is empty", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200 })
+      );
+
+      await scrapeUrlWithScrapeDo("https://example.com", "token", {}, {});
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.has("super")).toBe(false);
+      expect(calledUrl.searchParams.has("waitUntil")).toBe(false);
+      expect(calledUrl.searchParams.has("customWait")).toBe(false);
+      // render should not be set (no waitFor option either)
+      expect(calledUrl.searchParams.has("render")).toBe(false);
+    });
+  });
 });

@@ -4,6 +4,13 @@ const SCRAPE_DO_API_URL = "https://api.scrape.do";
 const DEFAULT_TIMEOUT_MS = 60000;
 const RETRY_TIMEOUT_MS = 120000;
 
+export interface ScrapeDoOverrides {
+  render?: boolean;
+  super?: boolean;
+  waitUntil?: string;
+  customWait?: number;
+}
+
 /**
  * Scrape a URL using Scrape.do.
  * On a 408 timeout, automatically retries once with a longer timeout.
@@ -11,7 +18,8 @@ const RETRY_TIMEOUT_MS = 120000;
 export async function scrapeUrlWithScrapeDo(
   url: string,
   apiKey: string,
-  options: ScrapeOptions = {}
+  options: ScrapeOptions = {},
+  overrides: ScrapeDoOverrides = {}
 ): Promise<ScrapeResponse> {
   const baseTimeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
 
@@ -25,6 +33,20 @@ export async function scrapeUrlWithScrapeDo(
     if (options.waitFor) {
       params.set("render", "true");
       params.set("wait", String(options.waitFor));
+    }
+
+    // Escalation overrides take precedence
+    if (overrides.render) {
+      params.set("render", "true");
+    }
+    if (overrides.super) {
+      params.set("super", "true");
+    }
+    if (overrides.waitUntil) {
+      params.set("waitUntil", overrides.waitUntil);
+    }
+    if (overrides.customWait) {
+      params.set("customWait", String(overrides.customWait));
     }
 
     params.set("timeout", String(timeout));

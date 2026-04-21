@@ -2,9 +2,9 @@ import { Router } from "express";
 import { eq, and, gt } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { scrapeRequests, scrapeResults, scrapeCache } from "../db/schema.js";
-import { scrapeUrl, normalizeUrl, ScrapeResponse as FirecrawlScrapeResponse } from "../lib/firecrawl.js";
-import { scrapeUrlWithScrapeDo } from "../lib/scrape-do.js";
+import { scrapeUrl, normalizeUrl } from "../lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
+import { scrapeWithEscalation } from "../lib/scrape-chain.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
@@ -126,13 +126,17 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     }
 
     // Authorize credits with billing-service (platform keys only)
-    const costName = PROVIDER_COST_NAME[provider];
+    // For scrape-do, authorize for worst-case (render+super) since the chain may escalate.
+    // Failed attempts are free — only the successful level is billed.
+    const authCostName = provider === "scrape-do"
+      ? "scrape-do-render-super-credit"
+      : PROVIDER_COST_NAME[provider];
     if (keySource === "platform") {
       try {
         const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
         const auth = await authorizeCredits(
-          [{ costName, quantity: 1 }],
-          costName,
+          [{ costName: authCostName, quantity: 1 }],
+          authCostName,
           billingIdentity
         );
         if (!auth.sufficient) {
@@ -181,9 +185,42 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       .returning();
 
     // Scrape the URL using the selected provider
-    const scrapeResponse = provider === "firecrawl"
-      ? await scrapeUrl(url, providerApiKey, options || {})
-      : await scrapeUrlWithScrapeDo(url, providerApiKey, options || {});
+    // When provider is scrape-do (default), use the escalation chain:
+    // basic → render → render+super �� firecrawl fallback
+    let scrapeResponse: { success: boolean; markdown?: string; html?: string; metadata?: any; error?: string };
+    let actualCostName: string;
+    let actualKeySource: "org" | "platform" = keySource;
+
+    if (provider === "firecrawl") {
+      scrapeResponse = await scrapeUrl(url, providerApiKey, options || {});
+      actualCostName = PROVIDER_COST_NAME["firecrawl"];
+    } else {
+      const chainResult = await scrapeWithEscalation(
+        {
+          url,
+          scrapeDoApiKey: providerApiKey,
+          options: options || {},
+          resolveFirecrawlKey: async () => {
+            const decrypted = await resolveKey({
+              provider: "firecrawl",
+              orgId,
+              userId,
+              runId: parentRunId,
+              campaignId: effectiveCampaignId,
+              brandIds: effectiveBrandIds,
+              workflowSlug: effectiveWorkflowSlug,
+              featureSlug: effectiveFeatureSlug,
+              caller: { method: "POST", path: "/scrape" },
+            });
+            return { key: decrypted.key, keySource: decrypted.keySource };
+          },
+        },
+        keySource
+      );
+      scrapeResponse = chainResult.response;
+      actualCostName = chainResult.costName;
+      actualKeySource = chainResult.keySource;
+    }
 
     if (!scrapeResponse.success) {
       // Update request as failed
@@ -286,7 +323,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     if (runId) {
       const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
       Promise.all([
-        addCosts(runId, [{ costName: costName, quantity: 1, costSource: keySource }], runIdentity),
+        addCosts(runId, [{ costName: actualCostName, quantity: 1, costSource: actualKeySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
