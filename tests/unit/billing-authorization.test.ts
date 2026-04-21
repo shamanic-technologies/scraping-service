@@ -31,11 +31,14 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
   ),
 }));
 
-// Mock scrape-do
-vi.mock("../../src/lib/scrape-do.js", () => ({
-  scrapeUrlWithScrapeDo: vi.fn().mockResolvedValue({
-    success: true,
-    markdown: "# Test",
+// Mock scrape-chain (used by scrape route instead of scrape-do directly)
+vi.mock("../../src/lib/scrape-chain.js", () => ({
+  scrapeWithEscalation: vi.fn().mockResolvedValue({
+    response: { success: true, markdown: "# Test" },
+    costName: "scrape-do-scrape-credit",
+    levelName: "scrape-do-basic",
+    provider: "scrape-do",
+    keySource: "platform",
   }),
 }));
 
@@ -133,8 +136,8 @@ describe("Billing authorization", () => {
 
       expect(res.status).toBe(200);
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "scrape-do-scrape-credit", quantity: 1 }],
-        "scrape-do-scrape-credit",
+        [{ costName: "scrape-do-render-super-credit", quantity: 1 }],
+        "scrape-do-render-super-credit",
         expect.objectContaining({
           orgId: "org_test",
           userId: "user_test",
@@ -199,8 +202,8 @@ describe("Billing authorization", () => {
         .send({ url: "https://example.com" });
 
       expect(mockAuthorizeCredits).toHaveBeenCalledWith(
-        [{ costName: "scrape-do-scrape-credit", quantity: 1 }],
-        "scrape-do-scrape-credit",
+        [{ costName: "scrape-do-render-super-credit", quantity: 1 }],
+        "scrape-do-render-super-credit",
         expect.objectContaining({
           campaignId: "camp_1",
           brandIds: ["brand_1"],
