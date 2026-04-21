@@ -31,11 +31,14 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
   ),
 }));
 
-// Mock scrape-do
-vi.mock("../../src/lib/scrape-do.js", () => ({
-  scrapeUrlWithScrapeDo: vi.fn().mockResolvedValue({
-    success: true,
-    markdown: "# Test",
+// Mock scrape-chain (used by scrape route instead of scrape-do directly)
+vi.mock("../../src/lib/scrape-chain.js", () => ({
+  scrapeWithEscalation: vi.fn().mockResolvedValue({
+    response: { success: true, markdown: "# Test" },
+    costName: "scrape-do-scrape-credit",
+    levelName: "scrape-do-basic",
+    provider: "scrape-do",
+    keySource: "platform",
   }),
 }));
 
