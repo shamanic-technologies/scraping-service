@@ -9,6 +9,7 @@ import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
+import { stripNullBytes } from "../lib/sanitize.js";
 
 const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
 
@@ -261,7 +262,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         description: companyInfo.description,
         industry: companyInfo.industry,
         website: url,
-        rawMarkdown: scrapeResponse.markdown,
+        rawMarkdown: stripNullBytes(scrapeResponse.markdown),
         rawMetadata: scrapeResponse.metadata as any,
         expiresAt,
       })
@@ -274,7 +275,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           description: companyInfo.description,
           industry: companyInfo.industry,
           website: url,
-          rawMarkdown: scrapeResponse.markdown,
+          rawMarkdown: stripNullBytes(scrapeResponse.markdown),
           rawMetadata: scrapeResponse.metadata as any,
           expiresAt,
           updatedAt: new Date(),
