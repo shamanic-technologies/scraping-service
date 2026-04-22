@@ -86,7 +86,6 @@ export async function scrapeWithEscalation(
         };
       }
 
-      console.log(`[scraping-service] Level ${level.name} failed for ${params.url}, escalating`);
       lastError = response.error;
       continue;
     }
@@ -99,7 +98,7 @@ export async function scrapeWithEscalation(
       firecrawlKey = resolved.key;
       firecrawlKeySource = resolved.keySource;
     } catch (err) {
-      console.log(`[scraping-service] Firecrawl key resolution failed, skipping fallback: ${err}`);
+      // Firecrawl key not available — not an error, just skip this fallback
       continue;
     }
 
@@ -116,7 +115,6 @@ export async function scrapeWithEscalation(
       };
     }
 
-    console.log(`[scraping-service] Level ${level.name} failed for ${params.url}, no more levels`);
     lastError = response.error;
   }
 

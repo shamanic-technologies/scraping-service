@@ -153,7 +153,7 @@ describe("scrapeWithEscalation", () => {
     expect(result.provider).toBe("firecrawl");
   });
 
-  it("should not console.warn on intermediate fallback failures, only on final failure", async () => {
+  it("should not log anything on intermediate fallback failures, only warn on final failure", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -168,18 +168,19 @@ describe("scrapeWithEscalation", () => {
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy.mock.calls[0][0]).toMatch(/All escalation levels failed/);
 
-    // Intermediate failures should be logged at info level, not warn
-    const intermediateLogs = logSpy.mock.calls.filter(
+    // No intermediate failure logs at all
+    const failureLogs = logSpy.mock.calls.filter(
       (call) => typeof call[0] === "string" && call[0].includes("failed")
     );
-    expect(intermediateLogs.length).toBeGreaterThanOrEqual(3); // 3 scrape-do + 1 firecrawl
+    expect(failureLogs).toHaveLength(0);
 
     warnSpy.mockRestore();
     logSpy.mockRestore();
   });
 
-  it("should not console.warn when an intermediate level fails but a later one succeeds", async () => {
+  it("should not warn or log failures when an intermediate level fails but a later one succeeds", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     mockScrapeUrlWithScrapeDo
       .mockResolvedValueOnce({ success: false, error: "403 Forbidden" })
@@ -187,10 +188,15 @@ describe("scrapeWithEscalation", () => {
 
     await scrapeWithEscalation(baseParams, "platform");
 
-    // No warnings at all — intermediate failure + eventual success
     expect(warnSpy).not.toHaveBeenCalled();
+    // Only the success log, no failure logs
+    const failureLogs = logSpy.mock.calls.filter(
+      (call) => typeof call[0] === "string" && call[0].includes("failed")
+    );
+    expect(failureLogs).toHaveLength(0);
 
     warnSpy.mockRestore();
+    logSpy.mockRestore();
   });
 
   it("should pass caller options through to every scrape-do level", async () => {
