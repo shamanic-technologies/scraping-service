@@ -153,6 +153,52 @@ describe("scrapeWithEscalation", () => {
     expect(result.provider).toBe("firecrawl");
   });
 
+  it("should not log anything on intermediate fallback failures, only warn on final failure", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    mockScrapeUrlWithScrapeDo
+      .mockResolvedValue({ success: false, error: "scrape-do failed" });
+    mockScrapeUrl
+      .mockResolvedValueOnce({ success: false, error: "firecrawl failed" });
+
+    await scrapeWithEscalation(baseParams, "platform");
+
+    // Only ONE warn call — the final "all levels failed" message
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/All escalation levels failed/);
+
+    // No intermediate failure logs at all
+    const failureLogs = logSpy.mock.calls.filter(
+      (call) => typeof call[0] === "string" && call[0].includes("failed")
+    );
+    expect(failureLogs).toHaveLength(0);
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it("should not warn or log failures when an intermediate level fails but a later one succeeds", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    mockScrapeUrlWithScrapeDo
+      .mockResolvedValueOnce({ success: false, error: "403 Forbidden" })
+      .mockResolvedValueOnce({ success: true, markdown: "# Rendered", requestCost: 5 });
+
+    await scrapeWithEscalation(baseParams, "platform");
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    // Only the success log, no failure logs
+    const failureLogs = logSpy.mock.calls.filter(
+      (call) => typeof call[0] === "string" && call[0].includes("failed")
+    );
+    expect(failureLogs).toHaveLength(0);
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
   it("should pass caller options through to every scrape-do level", async () => {
     const options = { waitFor: 5000, timeout: 30000 };
     mockScrapeUrlWithScrapeDo
