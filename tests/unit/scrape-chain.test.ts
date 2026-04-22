@@ -30,13 +30,15 @@ describe("scrapeWithEscalation", () => {
     mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
       success: true,
       markdown: "# Hello",
+      requestCost: 1,
     });
 
     const result = await scrapeWithEscalation(baseParams, "platform");
 
     expect(result.response.success).toBe(true);
-    expect(result.costName).toBe("scrape-do-scrape-credit");
+    expect(result.costName).toBe("scrape-do-credit");
     expect(result.levelName).toBe("scrape-do-basic");
+    expect(result.requestCost).toBe(1);
     expect(result.provider).toBe("scrape-do");
     expect(result.keySource).toBe("platform");
 
@@ -51,13 +53,14 @@ describe("scrapeWithEscalation", () => {
   it("should escalate to level 2 (render) when level 1 fails", async () => {
     mockScrapeUrlWithScrapeDo
       .mockResolvedValueOnce({ success: false, error: "403 Forbidden" })
-      .mockResolvedValueOnce({ success: true, markdown: "# Rendered" });
+      .mockResolvedValueOnce({ success: true, markdown: "# Rendered", requestCost: 5 });
 
     const result = await scrapeWithEscalation(baseParams, "platform");
 
     expect(result.response.success).toBe(true);
-    expect(result.costName).toBe("scrape-do-render-credit");
+    expect(result.costName).toBe("scrape-do-credit");
     expect(result.levelName).toBe("scrape-do-render");
+    expect(result.requestCost).toBe(5);
 
     expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(2);
     // Verify render overrides on second call
@@ -70,13 +73,14 @@ describe("scrapeWithEscalation", () => {
     mockScrapeUrlWithScrapeDo
       .mockResolvedValueOnce({ success: false, error: "500 error" })
       .mockResolvedValueOnce({ success: false, error: "500 error" })
-      .mockResolvedValueOnce({ success: true, markdown: "# Super" });
+      .mockResolvedValueOnce({ success: true, markdown: "# Super", requestCost: 25 });
 
     const result = await scrapeWithEscalation(baseParams, "platform");
 
     expect(result.response.success).toBe(true);
-    expect(result.costName).toBe("scrape-do-render-super-credit");
+    expect(result.costName).toBe("scrape-do-credit");
     expect(result.levelName).toBe("scrape-do-render-super");
+    expect(result.requestCost).toBe(25);
 
     expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(3);
     expect(mockScrapeUrlWithScrapeDo.mock.calls[2][3]).toEqual({

@@ -35,7 +35,7 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
 vi.mock("../../src/lib/scrape-chain.js", () => ({
   scrapeWithEscalation: vi.fn().mockResolvedValue({
     response: { success: true, markdown: "# Test" },
-    costName: "scrape-do-scrape-credit",
+    costName: "scrape-do-credit",
     levelName: "scrape-do-basic",
     provider: "scrape-do",
     keySource: "platform",
