@@ -21,7 +21,7 @@ const PROVIDER_KEY_NAME: Record<ScrapingProvider, string> = {
 
 /** Map provider name to cost name for billing/runs */
 const PROVIDER_COST_NAME: Record<ScrapingProvider, string> = {
-  "scrape-do": "scrape-do-scrape-credit",
+  "scrape-do": "scrape-do-credit",
   firecrawl: "firecrawl-scrape-credit",
 };
 
@@ -126,16 +126,15 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     }
 
     // Authorize credits with billing-service (platform keys only)
-    // For scrape-do, authorize for worst-case (render+super) since the chain may escalate.
+    // For scrape-do, authorize worst-case 25 credits (render+super) since the chain may escalate.
     // Failed attempts are free — only the successful level is billed.
-    const authCostName = provider === "scrape-do"
-      ? "scrape-do-render-super-credit"
-      : PROVIDER_COST_NAME[provider];
+    const authCostName = PROVIDER_COST_NAME[provider];
+    const authQuantity = provider === "scrape-do" ? 25 : 1;
     if (keySource === "platform") {
       try {
         const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
         const auth = await authorizeCredits(
-          [{ costName: authCostName, quantity: 1 }],
+          [{ costName: authCostName, quantity: authQuantity }],
           authCostName,
           billingIdentity
         );
@@ -190,6 +189,8 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     let scrapeResponse: { success: boolean; markdown?: string; html?: string; metadata?: any; error?: string };
     let actualCostName: string;
     let actualKeySource: "org" | "platform" = keySource;
+    let actualProvider: ScrapingProvider = provider;
+    let actualRequestCost = 1;
 
     if (provider === "firecrawl") {
       scrapeResponse = await scrapeUrl(url, providerApiKey, options || {});
@@ -220,6 +221,10 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       scrapeResponse = chainResult.response;
       actualCostName = chainResult.costName;
       actualKeySource = chainResult.keySource;
+      actualProvider = chainResult.provider as ScrapingProvider;
+      if (chainResult.requestCost != null) {
+        actualRequestCost = chainResult.requestCost;
+      }
     }
 
     if (!scrapeResponse.success) {
@@ -310,11 +315,12 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         },
       });
 
-    // Update request as completed
+    // Update request as completed with actual provider that succeeded
     await db
       .update(scrapeRequests)
       .set({
         status: "completed",
+        provider: actualProvider,
         completedAt: new Date(),
       })
       .where(eq(scrapeRequests.id, request.id));
@@ -323,14 +329,14 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     if (runId) {
       const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
       Promise.all([
-        addCosts(runId, [{ costName: actualCostName, quantity: 1, costSource: actualKeySource }], runIdentity),
+        addCosts(runId, [{ costName: actualCostName, quantity: actualRequestCost, costSource: actualKeySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
 
     res.json({
       cached: false,
-      provider,
+      provider: actualProvider,
       requestId: request.id,
       runId,
       result: formatResult(result),

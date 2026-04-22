@@ -9,7 +9,7 @@ describe("scrapeUrlWithScrapeDo", () => {
   it("should call scrape.do API with correct params and return markdown", async () => {
     const mockMarkdown = "# Hello World\n\nSome content";
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(mockMarkdown, { status: 200 })
+      new Response(mockMarkdown, { status: 200, headers: { "scrape.do-request-cost": "1" } })
     );
 
     const result = await scrapeUrlWithScrapeDo(
@@ -19,6 +19,7 @@ describe("scrapeUrlWithScrapeDo", () => {
 
     expect(result.success).toBe(true);
     expect(result.markdown).toBe(mockMarkdown);
+    expect(result.requestCost).toBe(1);
     expect(result.metadata).toBeUndefined();
 
     const fetchCall = vi.mocked(globalThis.fetch).mock.calls[0];
@@ -207,6 +208,35 @@ describe("scrapeUrlWithScrapeDo", () => {
       expect(calledUrl.searchParams.has("customWait")).toBe(false);
       // render should not be set (no waitFor option either)
       expect(calledUrl.searchParams.has("render")).toBe(false);
+    });
+  });
+
+  describe("requestCost header parsing", () => {
+    it("should return requestCost from scrape.do-request-cost header", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200, headers: { "scrape.do-request-cost": "25" } })
+      );
+
+      const result = await scrapeUrlWithScrapeDo("https://example.com", "token");
+      expect(result.requestCost).toBe(25);
+    });
+
+    it("should return undefined requestCost when header is missing", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200 })
+      );
+
+      const result = await scrapeUrlWithScrapeDo("https://example.com", "token");
+      expect(result.requestCost).toBeUndefined();
+    });
+
+    it("should return undefined requestCost when header is non-numeric", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("content", { status: 200, headers: { "scrape.do-request-cost": "abc" } })
+      );
+
+      const result = await scrapeUrlWithScrapeDo("https://example.com", "token");
+      expect(result.requestCost).toBeUndefined();
     });
   });
 });

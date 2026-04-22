@@ -23,6 +23,7 @@ export interface ScrapeResponse {
     [key: string]: unknown;
   };
   error?: string;
+  requestCost?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 60000;

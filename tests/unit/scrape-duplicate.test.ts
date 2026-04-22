@@ -97,7 +97,7 @@ describe("POST /scrape - duplicate URL handling", () => {
   it("should use onConflictDoUpdate when inserting scrape results", async () => {
     mockScrapeWithEscalation.mockResolvedValueOnce({
       response: { success: true, markdown: "# MCP Factory" },
-      costName: "scrape-do-scrape-credit",
+      costName: "scrape-do-credit",
       levelName: "scrape-do-basic",
       provider: "scrape-do",
       keySource: "platform",
@@ -128,7 +128,7 @@ describe("POST /scrape - duplicate URL handling", () => {
   it("should use onConflictDoUpdate for scrape cache too", async () => {
     mockScrapeWithEscalation.mockResolvedValueOnce({
       response: { success: true, markdown: "# MCP Factory" },
-      costName: "scrape-do-scrape-credit",
+      costName: "scrape-do-credit",
       levelName: "scrape-do-basic",
       provider: "scrape-do",
       keySource: "platform",
