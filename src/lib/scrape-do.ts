@@ -68,10 +68,14 @@ export async function scrapeUrlWithScrapeDo(
 
     const markdown = await response.text();
 
+    const requestCostHeader = response.headers.get("scrape.do-request-cost");
+    const parsedCost = requestCostHeader ? Number(requestCostHeader) : NaN;
+    const requestCost = Number.isFinite(parsedCost) ? parsedCost : undefined;
+
     return {
       success: true,
       markdown,
-      // Scrape.do doesn't return structured metadata — callers get null companyName/description
+      requestCost,
     };
   };
 

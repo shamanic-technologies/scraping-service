@@ -11,18 +11,18 @@ interface EscalationLevel {
 const ESCALATION_LEVELS: EscalationLevel[] = [
   {
     name: "scrape-do-basic",
-    costName: "scrape-do-scrape-credit",
+    costName: "scrape-do-credit",
     provider: "scrape-do",
   },
   {
     name: "scrape-do-render",
-    costName: "scrape-do-render-credit",
+    costName: "scrape-do-credit",
     provider: "scrape-do",
     scrapeDoOverrides: { render: true, waitUntil: "networkidle0", customWait: 3000 },
   },
   {
     name: "scrape-do-render-super",
-    costName: "scrape-do-render-super-credit",
+    costName: "scrape-do-credit",
     provider: "scrape-do",
     scrapeDoOverrides: { render: true, super: true, waitUntil: "networkidle0", customWait: 3000 },
   },
@@ -46,6 +46,7 @@ export interface ScrapeChainResult {
   levelName: string;
   provider: "scrape-do" | "firecrawl";
   keySource: "org" | "platform";
+  requestCost?: number;
 }
 
 /**
@@ -81,6 +82,7 @@ export async function scrapeWithEscalation(
           levelName: level.name,
           provider: "scrape-do",
           keySource: scrapeDoKeySource,
+          requestCost: response.requestCost,
         };
       }
 
