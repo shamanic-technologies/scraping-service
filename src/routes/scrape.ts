@@ -9,6 +9,7 @@ import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
+import { sanitizeForPostgres, MAX_MARKDOWN_LENGTH } from "../lib/sanitize.js";
 
 const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
 
@@ -251,17 +252,21 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // Store result
     const expiresAt = new Date(Date.now() + CACHE_DURATION_MS);
 
+    const sanitizedMarkdown = sanitizeForPostgres(scrapeResponse.markdown, MAX_MARKDOWN_LENGTH);
+    const sanitizedDescription = sanitizeForPostgres(companyInfo.description);
+    const sanitizedCompanyName = sanitizeForPostgres(companyInfo.companyName);
+
     const [result] = await db
       .insert(scrapeResults)
       .values({
         requestId: request.id,
         url,
         normalizedUrl: normalized,
-        companyName: companyInfo.companyName,
-        description: companyInfo.description,
+        companyName: sanitizedCompanyName,
+        description: sanitizedDescription,
         industry: companyInfo.industry,
         website: url,
-        rawMarkdown: scrapeResponse.markdown,
+        rawMarkdown: sanitizedMarkdown,
         rawMetadata: scrapeResponse.metadata as any,
         expiresAt,
       })
@@ -270,11 +275,11 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         set: {
           requestId: request.id,
           url,
-          companyName: companyInfo.companyName,
-          description: companyInfo.description,
+          companyName: sanitizedCompanyName,
+          description: sanitizedDescription,
           industry: companyInfo.industry,
           website: url,
-          rawMarkdown: scrapeResponse.markdown,
+          rawMarkdown: sanitizedMarkdown,
           rawMetadata: scrapeResponse.metadata as any,
           expiresAt,
           updatedAt: new Date(),
@@ -288,7 +293,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       .values({
         normalizedUrl: normalized,
         resultId: result.id,
-        companyName: companyInfo.companyName,
+        companyName: sanitizedCompanyName,
         industry: companyInfo.industry,
         isValid: true,
         expiresAt,
@@ -297,7 +302,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         target: scrapeCache.normalizedUrl,
         set: {
           resultId: result.id,
-          companyName: companyInfo.companyName,
+          companyName: sanitizedCompanyName,
           industry: companyInfo.industry,
           isValid: true,
           expiresAt,
@@ -331,7 +336,31 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       result: formatResult(result),
     });
   } catch (error: any) {
-    console.error("Scrape error:", error);
+    console.error("[scraping-service] Scrape error:", error);
+
+    // Update request status to "failed" so it doesn't stay stuck in "processing"
+    try {
+      const parsed = ScrapeRequestSchema.safeParse(req.body);
+      if (parsed.success) {
+        const normalized = normalizeUrl(parsed.data.url);
+        await db
+          .update(scrapeRequests)
+          .set({
+            status: "failed",
+            errorMessage: error.message || "Internal server error",
+            completedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(scrapeRequests.url, parsed.data.url),
+              eq(scrapeRequests.status, "processing")
+            )
+          );
+      }
+    } catch (updateErr) {
+      console.error("[scraping-service] Failed to update request status:", updateErr);
+    }
+
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
