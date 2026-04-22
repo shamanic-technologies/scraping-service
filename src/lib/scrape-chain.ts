@@ -86,7 +86,7 @@ export async function scrapeWithEscalation(
         };
       }
 
-      console.warn(`[scraping-service] Level ${level.name} failed for ${params.url}: ${response.error}`);
+      console.log(`[scraping-service] Level ${level.name} failed for ${params.url}, escalating`);
       lastError = response.error;
       continue;
     }
@@ -99,7 +99,7 @@ export async function scrapeWithEscalation(
       firecrawlKey = resolved.key;
       firecrawlKeySource = resolved.keySource;
     } catch (err) {
-      console.warn(`[scraping-service] Firecrawl key resolution failed, skipping fallback: ${err}`);
+      console.log(`[scraping-service] Firecrawl key resolution failed, skipping fallback: ${err}`);
       continue;
     }
 
@@ -116,10 +116,11 @@ export async function scrapeWithEscalation(
       };
     }
 
-    console.warn(`[scraping-service] Level ${level.name} failed for ${params.url}: ${response.error}`);
+    console.log(`[scraping-service] Level ${level.name} failed for ${params.url}, no more levels`);
     lastError = response.error;
   }
 
+  console.warn(`[scraping-service] All escalation levels failed for ${params.url}: ${lastError}`);
   return {
     response: { success: false, error: lastError || "All escalation levels failed" },
     costName: ESCALATION_LEVELS[ESCALATION_LEVELS.length - 1].costName,

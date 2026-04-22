@@ -153,6 +153,46 @@ describe("scrapeWithEscalation", () => {
     expect(result.provider).toBe("firecrawl");
   });
 
+  it("should not console.warn on intermediate fallback failures, only on final failure", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    mockScrapeUrlWithScrapeDo
+      .mockResolvedValue({ success: false, error: "scrape-do failed" });
+    mockScrapeUrl
+      .mockResolvedValueOnce({ success: false, error: "firecrawl failed" });
+
+    await scrapeWithEscalation(baseParams, "platform");
+
+    // Only ONE warn call — the final "all levels failed" message
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/All escalation levels failed/);
+
+    // Intermediate failures should be logged at info level, not warn
+    const intermediateLogs = logSpy.mock.calls.filter(
+      (call) => typeof call[0] === "string" && call[0].includes("failed")
+    );
+    expect(intermediateLogs.length).toBeGreaterThanOrEqual(3); // 3 scrape-do + 1 firecrawl
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it("should not console.warn when an intermediate level fails but a later one succeeds", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    mockScrapeUrlWithScrapeDo
+      .mockResolvedValueOnce({ success: false, error: "403 Forbidden" })
+      .mockResolvedValueOnce({ success: true, markdown: "# Rendered", requestCost: 5 });
+
+    await scrapeWithEscalation(baseParams, "platform");
+
+    // No warnings at all — intermediate failure + eventual success
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
   it("should pass caller options through to every scrape-do level", async () => {
     const options = { waitFor: 5000, timeout: 30000 };
     mockScrapeUrlWithScrapeDo
