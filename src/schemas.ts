@@ -199,6 +199,29 @@ const MapErrorResponseSchema = z
   })
   .openapi("MapErrorResponse");
 
+// --- Transfer Brand schemas ---
+
+export const TransferBrandRequestSchema = z
+  .object({
+    brandId: z.string().uuid(),
+    sourceOrgId: z.string(),
+    targetOrgId: z.string(),
+  })
+  .openapi("TransferBrandRequest");
+
+export type TransferBrandRequest = z.infer<typeof TransferBrandRequestSchema>;
+
+const TransferBrandResponseSchema = z
+  .object({
+    updatedTables: z.array(
+      z.object({
+        tableName: z.string(),
+        count: z.number(),
+      })
+    ),
+  })
+  .openapi("TransferBrandResponse");
+
 // --- Health schemas ---
 
 const ServiceInfoSchema = z
@@ -397,5 +420,28 @@ registry.registerPath({
       description: "Map failed",
       content: { "application/json": { schema: MapErrorResponseSchema } },
     },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/internal/transfer-brand",
+  summary: "Transfer brand ownership from one org to another (solo-brand rows only)",
+  security: [{ apiKey: [] }],
+  request: {
+    body: {
+      content: { "application/json": { schema: TransferBrandRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Transfer result with counts per table",
+      content: { "application/json": { schema: TransferBrandResponseSchema } },
+    },
+    400: {
+      description: "Invalid request",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: { description: "Unauthorized" },
   },
 });
