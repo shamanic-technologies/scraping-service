@@ -9,6 +9,7 @@ import healthRoutes from "./routes/health.js";
 import scrapeRoutes from "./routes/scrape.js";
 import mapRoutes from "./routes/map.js";
 import extractRoutes from "./routes/extract.js";
+import transferBrandRoutes from "./routes/transfer-brand.js";
 import { serviceAuth } from "./middleware/auth.js";
 import { db } from "./db/index.js";
 
@@ -45,6 +46,7 @@ app.use(healthRoutes);
 app.use(scrapeRoutes);
 app.use(mapRoutes);
 app.use(extractRoutes);
+app.use(transferBrandRoutes);
 
 // 404 handler
 app.use((req, res) => {
