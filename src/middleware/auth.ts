@@ -24,6 +24,9 @@ export function serviceAuth(
     return next();
   }
 
+  // Internal routes: API key only, no org/user/run headers required
+  const isInternalRoute = req.path.startsWith("/internal/");
+
   const apiKey = req.headers["x-api-key"] as string;
 
   if (!apiKey) {
@@ -34,6 +37,11 @@ export function serviceAuth(
 
   if (!validKey || apiKey !== validKey) {
     return res.status(401).json({ error: "Invalid API key" });
+  }
+
+  // Internal routes skip identity header requirements
+  if (isInternalRoute) {
+    return next();
   }
 
   // Extract and require identity headers
