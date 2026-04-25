@@ -14,17 +14,10 @@ router.post("/internal/transfer-brand", async (req: Request, res: Response) => {
 
   const { sourceBrandId, sourceOrgId, targetOrgId, targetBrandId } = parsed.data;
 
-  // When targetBrandId is present (conflict), rewrite brand_ids to [targetBrandId]
-  // When absent (no conflict), keep brand_ids unchanged, just move org_id
-  const setClause: Record<string, unknown> = { orgId: targetOrgId };
-  if (targetBrandId) {
-    setClause.brandIds = [targetBrandId];
-  }
-
-  // Update scrape_requests where org_id = sourceOrgId AND brand_ids is exactly [sourceBrandId]
-  const updated = await db
+  // Step 1: Move rows from sourceOrg to targetOrg (solo-brand only)
+  const movedRows = await db
     .update(scrapeRequests)
-    .set(setClause)
+    .set({ orgId: targetOrgId })
     .where(
       and(
         eq(scrapeRequests.orgId, sourceOrgId),
@@ -33,12 +26,29 @@ router.post("/internal/transfer-brand", async (req: Request, res: Response) => {
     )
     .returning({ id: scrapeRequests.id });
 
+  let rewrittenRows: { id: string }[] = [];
+
+  // Step 2: If targetBrandId present, rewrite brand_ids on ALL rows with sourceBrandId (no org filter)
+  if (targetBrandId) {
+    rewrittenRows = await db
+      .update(scrapeRequests)
+      .set({ brandIds: [targetBrandId] })
+      .where(
+        sql`${scrapeRequests.brandIds} = ARRAY[${sourceBrandId}]::text[]`
+      )
+      .returning({ id: scrapeRequests.id });
+  }
+
+  const totalUpdated = targetBrandId
+    ? new Set([...movedRows.map((r) => r.id), ...rewrittenRows.map((r) => r.id)]).size
+    : movedRows.length;
+
   console.log(
-    `[scraping-service] transfer-brand: sourceBrandId=${sourceBrandId} targetBrandId=${targetBrandId ?? "none"} from=${sourceOrgId} to=${targetOrgId} scrape_requests=${updated.length}`
+    `[scraping-service] transfer-brand: sourceBrandId=${sourceBrandId} targetBrandId=${targetBrandId ?? "none"} from=${sourceOrgId} to=${targetOrgId} moved=${movedRows.length} rewritten=${rewrittenRows.length} total=${totalUpdated}`
   );
 
   return res.json({
-    updatedTables: [{ tableName: "scrape_requests", count: updated.length }],
+    updatedTables: [{ tableName: "scrape_requests", count: totalUpdated }],
   });
 });
 

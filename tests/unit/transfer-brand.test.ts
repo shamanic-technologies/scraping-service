@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock db module
+// Mock db module — track each update().set().where().returning() chain
 const mockReturning = vi.fn();
 const mockWhere = vi.fn(() => ({ returning: mockReturning }));
 const mockSet = vi.fn(() => ({ where: mockWhere }));
@@ -96,7 +96,7 @@ describe("POST /internal/transfer-brand", () => {
     expect(response.status).toBe(400);
   });
 
-  it("should update scrape_requests and return counts", async () => {
+  it("should update scrape_requests and return counts (no targetBrandId)", async () => {
     mockReturning.mockResolvedValue([
       { id: "row-1" },
       { id: "row-2" },
@@ -136,7 +136,7 @@ describe("POST /internal/transfer-brand", () => {
     });
   });
 
-  it("should only set orgId when targetBrandId is absent", async () => {
+  it("should only call db.update once when targetBrandId is absent (step 1 only)", async () => {
     mockReturning.mockResolvedValue([]);
 
     await request(app)
@@ -148,11 +148,15 @@ describe("POST /internal/transfer-brand", () => {
         targetOrgId: "org-target",
       });
 
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(mockSet).toHaveBeenCalledWith({ orgId: "org-target" });
   });
 
-  it("should set both orgId and brandIds when targetBrandId is present", async () => {
-    mockReturning.mockResolvedValue([{ id: "row-1" }]);
+  it("should call db.update twice when targetBrandId is present (step 1 + step 2)", async () => {
+    // Step 1 returns moved rows, step 2 returns rewritten rows
+    mockReturning
+      .mockResolvedValueOnce([{ id: "row-1" }, { id: "row-2" }])
+      .mockResolvedValueOnce([{ id: "row-1" }, { id: "row-2" }, { id: "row-3" }]);
 
     const response = await request(app)
       .post("/internal/transfer-brand")
@@ -165,10 +169,37 @@ describe("POST /internal/transfer-brand", () => {
       });
 
     expect(response.status).toBe(200);
-    expect(mockSet).toHaveBeenCalledWith({
-      orgId: "org-target",
+    // Two separate updates
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    // Step 1: only org_id change
+    expect(mockSet).toHaveBeenNthCalledWith(1, { orgId: "org-target" });
+    // Step 2: only brand_ids rewrite
+    expect(mockSet).toHaveBeenNthCalledWith(2, {
       brandIds: ["00000000-0000-0000-0000-000000000002"],
     });
+    // Deduped count: row-1, row-2 from step 1 + row-3 from step 2 = 3
+    expect(response.body).toEqual({
+      updatedTables: [{ tableName: "scrape_requests", count: 3 }],
+    });
+  });
+
+  it("should deduplicate row IDs across both steps", async () => {
+    // Same rows returned by both steps (all already in sourceOrg)
+    mockReturning
+      .mockResolvedValueOnce([{ id: "row-1" }])
+      .mockResolvedValueOnce([{ id: "row-1" }]);
+
+    const response = await request(app)
+      .post("/internal/transfer-brand")
+      .set("X-API-Key", "test-key")
+      .send({
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
+        sourceOrgId: "org-source",
+        targetOrgId: "org-target",
+        targetBrandId: "00000000-0000-0000-0000-000000000002",
+      });
+
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
       updatedTables: [{ tableName: "scrape_requests", count: 1 }],
     });
