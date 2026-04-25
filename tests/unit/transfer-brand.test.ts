@@ -36,7 +36,7 @@ describe("POST /internal/transfer-brand", () => {
     const response = await request(app)
       .post("/internal/transfer-brand")
       .send({
-        brandId: "00000000-0000-0000-0000-000000000001",
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
         sourceOrgId: "org-source",
         targetOrgId: "org-target",
       });
@@ -49,7 +49,7 @@ describe("POST /internal/transfer-brand", () => {
       .post("/internal/transfer-brand")
       .set("X-API-Key", "test-key")
       .send({
-        brandId: "00000000-0000-0000-0000-000000000001",
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
         sourceOrgId: "org-source",
         targetOrgId: "org-target",
       });
@@ -57,7 +57,7 @@ describe("POST /internal/transfer-brand", () => {
     expect(response.status).toBe(200);
   });
 
-  it("should return 400 for invalid body (missing brandId)", async () => {
+  it("should return 400 for invalid body (missing sourceBrandId)", async () => {
     const response = await request(app)
       .post("/internal/transfer-brand")
       .set("X-API-Key", "test-key")
@@ -69,14 +69,28 @@ describe("POST /internal/transfer-brand", () => {
     expect(response.status).toBe(400);
   });
 
-  it("should return 400 for invalid brandId (not UUID)", async () => {
+  it("should return 400 for invalid sourceBrandId (not UUID)", async () => {
     const response = await request(app)
       .post("/internal/transfer-brand")
       .set("X-API-Key", "test-key")
       .send({
-        brandId: "not-a-uuid",
+        sourceBrandId: "not-a-uuid",
         sourceOrgId: "org-source",
         targetOrgId: "org-target",
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("should return 400 for invalid targetBrandId (not UUID)", async () => {
+    const response = await request(app)
+      .post("/internal/transfer-brand")
+      .set("X-API-Key", "test-key")
+      .send({
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
+        sourceOrgId: "org-source",
+        targetOrgId: "org-target",
+        targetBrandId: "not-a-uuid",
       });
 
     expect(response.status).toBe(400);
@@ -93,7 +107,7 @@ describe("POST /internal/transfer-brand", () => {
       .post("/internal/transfer-brand")
       .set("X-API-Key", "test-key")
       .send({
-        brandId: "00000000-0000-0000-0000-000000000001",
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
         sourceOrgId: "org-source",
         targetOrgId: "org-target",
       });
@@ -111,7 +125,7 @@ describe("POST /internal/transfer-brand", () => {
       .post("/internal/transfer-brand")
       .set("X-API-Key", "test-key")
       .send({
-        brandId: "00000000-0000-0000-0000-000000000001",
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
         sourceOrgId: "org-source",
         targetOrgId: "org-target",
       });
@@ -122,18 +136,41 @@ describe("POST /internal/transfer-brand", () => {
     });
   });
 
-  it("should set orgId to targetOrgId in the update", async () => {
+  it("should only set orgId when targetBrandId is absent", async () => {
     mockReturning.mockResolvedValue([]);
 
     await request(app)
       .post("/internal/transfer-brand")
       .set("X-API-Key", "test-key")
       .send({
-        brandId: "00000000-0000-0000-0000-000000000001",
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
         sourceOrgId: "org-source",
         targetOrgId: "org-target",
       });
 
     expect(mockSet).toHaveBeenCalledWith({ orgId: "org-target" });
+  });
+
+  it("should set both orgId and brandIds when targetBrandId is present", async () => {
+    mockReturning.mockResolvedValue([{ id: "row-1" }]);
+
+    const response = await request(app)
+      .post("/internal/transfer-brand")
+      .set("X-API-Key", "test-key")
+      .send({
+        sourceBrandId: "00000000-0000-0000-0000-000000000001",
+        sourceOrgId: "org-source",
+        targetOrgId: "org-target",
+        targetBrandId: "00000000-0000-0000-0000-000000000002",
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockSet).toHaveBeenCalledWith({
+      orgId: "org-target",
+      brandIds: ["00000000-0000-0000-0000-000000000002"],
+    });
+    expect(response.body).toEqual({
+      updatedTables: [{ tableName: "scrape_requests", count: 1 }],
+    });
   });
 });
