@@ -1,4 +1,5 @@
 const RUNS_SERVICE_URL = process.env.RUNS_SERVICE_URL || "https://runs.mcpfactory.org";
+const FETCH_TIMEOUT_MS = 10000;
 
 function getApiKey(): string {
   const key = process.env.RUNS_SERVICE_API_KEY;
@@ -22,6 +23,7 @@ async function callRunsService<T>(
 ): Promise<T> {
   const response = await fetch(`${RUNS_SERVICE_URL}${path}`, {
     ...options,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     headers: {
       "Content-Type": "application/json",
       "X-API-Key": getApiKey(),

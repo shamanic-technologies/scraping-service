@@ -64,9 +64,11 @@ if (process.env.NODE_ENV !== "test") {
   migrate(db, { migrationsFolder: "./drizzle" })
     .then(() => {
       console.log("Migrations complete");
-      app.listen(Number(PORT), "::", () => {
-        console.log(`Service running on port ${PORT}`);
+      const server = app.listen(Number(PORT), "::", () => {
+        console.log(`[scraping-service] Service running on port ${PORT}`);
       });
+      server.requestTimeout = 300_000; // 5 min safety net
+      server.headersTimeout = 305_000; // must be > requestTimeout
     })
     .catch((err) => {
       console.error("Migration failed:", err);
