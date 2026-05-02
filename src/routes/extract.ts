@@ -21,6 +21,7 @@ const DEFAULT_CACHE_DURATION_MS = 180 * 24 * 60 * 60 * 1000;
  * Results are cached for 7 days per normalized URL.
  */
 router.post("/extract", async (req: AuthenticatedRequest, res) => {
+  let runId: string | undefined;
   try {
     const parsed = ExtractRequestSchema.safeParse(req.body);
 
@@ -167,7 +168,6 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
     }
 
     // Create run
-    let runId: string | undefined;
     try {
       const run = await createRun(
         {
@@ -299,6 +299,15 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
     });
   } catch (error: any) {
     console.error("[scraping-service] Extract error:", error);
+
+    if (runId) {
+      const orgId = req.orgId!;
+      const userId = req.userId!;
+      updateRunStatus(runId, "failed", { orgId, userId, runId }).catch((err) =>
+        console.error("[scraping-service] Failed to close run in outer catch:", err)
+      );
+    }
+
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
