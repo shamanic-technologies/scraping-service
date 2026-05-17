@@ -36,7 +36,7 @@ export async function authorizeCredits(
   description: string,
   identity: IdentityContext
 ): Promise<AuthorizeResult> {
-  const url = `${getBillingServiceUrl()}/v1/credits/authorize`;
+  const url = `${getBillingServiceUrl()}/v1/customer_balance/authorize`;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
