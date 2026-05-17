@@ -28,6 +28,8 @@ export interface ScrapeResponse {
 
 const DEFAULT_TIMEOUT_MS = 60000;
 const RETRY_TIMEOUT_MS = 120000;
+const SDK_ABORT_TIMEOUT_MS = 150000;
+const FETCH_TIMEOUT_MS = 10000;
 
 /**
  * Scrape a URL using Firecrawl.
@@ -42,14 +44,19 @@ export async function scrapeUrl(
   const baseTimeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
 
   const attempt = async (timeout: number): Promise<ScrapeResponse> => {
-    const result = await firecrawl.scrapeUrl(url, {
-      formats: options.formats || ["markdown"],
-      onlyMainContent: options.onlyMainContent ?? true,
-      includeTags: options.includeTags,
-      excludeTags: options.excludeTags,
-      waitFor: options.waitFor,
-      timeout,
-    });
+    const result = await Promise.race([
+      firecrawl.scrapeUrl(url, {
+        formats: options.formats || ["markdown"],
+        onlyMainContent: options.onlyMainContent ?? true,
+        includeTags: options.includeTags,
+        excludeTags: options.excludeTags,
+        waitFor: options.waitFor,
+        timeout,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Firecrawl SDK timed out after ${SDK_ABORT_TIMEOUT_MS}ms`)), SDK_ABORT_TIMEOUT_MS)
+      ),
+    ]);
 
     if (!result.success) {
       return {
@@ -160,6 +167,7 @@ export async function extractUrl(
     // Start extract job
     const startRes = await fetch(`${FIRECRAWL_API_URL}/v1/extract`, {
       method: "POST",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
@@ -193,6 +201,7 @@ export async function extractUrl(
       await new Promise((r) => setTimeout(r, EXTRACT_POLL_INTERVAL_MS));
 
       const statusRes = await fetch(`${FIRECRAWL_API_URL}/v1/extract/${jobId}`, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: { Authorization: `Bearer ${apiKey}` },
       });
 

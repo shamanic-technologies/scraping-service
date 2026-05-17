@@ -35,6 +35,7 @@ const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
  * Scrape a URL and extract company information
  */
 router.post("/scrape", async (req: AuthenticatedRequest, res) => {
+  let runId: string | undefined;
   try {
     const parsed = ScrapeRequestSchema.safeParse(req.body);
 
@@ -153,7 +154,6 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
 
     // Create run in RunsService
     // x-run-id = parentRunId so runs-service sets it as the parent
-    let runId: string | undefined;
     try {
       const run = await createRun(
         { taskName: "scrape", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug },
@@ -343,6 +343,15 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     });
   } catch (error: any) {
     console.error("[scraping-service] Scrape error:", error);
+
+    // Close the run so it doesn't stay stuck in "running" forever
+    if (runId) {
+      const orgId = (req as AuthenticatedRequest).orgId!;
+      const userId = (req as AuthenticatedRequest).userId!;
+      updateRunStatus(runId, "failed", { orgId, userId, runId }).catch((err) =>
+        console.error("[scraping-service] Failed to close run in outer catch:", err)
+      );
+    }
 
     // Update request status to "failed" so it doesn't stay stuck in "processing"
     try {

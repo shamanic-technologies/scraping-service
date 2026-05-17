@@ -3,6 +3,7 @@ import { ScrapeOptions, ScrapeResponse } from "./firecrawl.js";
 const SCRAPE_DO_API_URL = "https://api.scrape.do";
 const DEFAULT_TIMEOUT_MS = 60000;
 const RETRY_TIMEOUT_MS = 120000;
+const FETCH_ABORT_TIMEOUT_MS = 150000;
 
 export interface ScrapeDoOverrides {
   render?: boolean;
@@ -51,7 +52,9 @@ export async function scrapeUrlWithScrapeDo(
 
     params.set("timeout", String(timeout));
 
-    const response = await fetch(`${SCRAPE_DO_API_URL}/?${params.toString()}`);
+    const response = await fetch(`${SCRAPE_DO_API_URL}/?${params.toString()}`, {
+      signal: AbortSignal.timeout(FETCH_ABORT_TIMEOUT_MS),
+    });
 
     if (!response.ok) {
       if (response.status === 408) {

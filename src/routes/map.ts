@@ -13,6 +13,7 @@ const router = Router();
  * Discover all URLs on a website using Firecrawl's map endpoint
  */
 router.post("/map", async (req: AuthenticatedRequest, res) => {
+  let runId: string | undefined;
   try {
     const parsed = MapRequestSchema.safeParse(req.body);
 
@@ -98,7 +99,6 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Create run in RunsService
     // x-run-id = parentRunId so runs-service sets it as the parent
-    let runId: string | undefined;
     try {
       const run = await createRun(
         { taskName: "map", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug },
@@ -149,7 +149,16 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       runId,
     });
   } catch (error: any) {
-    console.error("Map error:", error);
+    console.error("[scraping-service] Map error:", error);
+
+    if (runId) {
+      const orgId = (req as AuthenticatedRequest).orgId!;
+      const userId = (req as AuthenticatedRequest).userId!;
+      updateRunStatus(runId, "failed", { orgId, userId, runId }).catch((err) =>
+        console.error("[scraping-service] Failed to close run in outer catch:", err)
+      );
+    }
+
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
