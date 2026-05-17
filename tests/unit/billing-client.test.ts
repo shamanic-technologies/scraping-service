@@ -31,7 +31,7 @@ describe("billing-client", () => {
     });
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://billing.test/v1/credits/authorize",
+      "https://billing.test/v1/customer_balance/authorize",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -122,5 +122,26 @@ describe("billing-client", () => {
     await expect(
       authorizeCredits([{ costName: "test", quantity: 1 }], "test", { orgId: "org_1", userId: "user_1" })
     ).rejects.toThrow("BILLING_SERVICE_API_KEY is not set");
+  });
+
+  // Regression: billing-service renamed /v1/credits/authorize → /v1/customer_balance/authorize.
+  // Stale callers returned 404 → 502 cascade. This test pins the new URL so a future rename
+  // breaks the test loudly instead of silently reintroducing the outage.
+  it("should POST to /v1/customer_balance/authorize (never /v1/credits/authorize)", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ sufficient: true, balance_cents: 100, required_cents: 1, billing_mode: "payg" }),
+    } as Response);
+
+    await authorizeCredits(
+      [{ costName: "scrape-do-credit", quantity: 25 }],
+      "scrape-do-credit",
+      { orgId: "org_1", userId: "user_1" }
+    );
+
+    const calledUrl = vi.mocked(fetch).mock.calls[0][0];
+    expect(calledUrl).toBe("https://billing.test/v1/customer_balance/authorize");
+    expect(calledUrl).not.toContain("/v1/credits/authorize");
   });
 });
