@@ -48,6 +48,24 @@ export const ScrapeRequestSchema = z
     sourceService: z.string().optional(),
     sourceRefId: z.string().optional(),
     skipCache: z.boolean().optional().default(false),
+    // Company-info enrichment toggle. Omitted ⇒ enrich on (current behavior).
+    // `false` returns the raw page body cheaply without the company-info step
+    // and bypasses the shared company-info cache/result store.
+    enrich: z
+      .boolean()
+      .optional()
+      .openapi({
+        description:
+          "Run company-info enrichment. Defaults to true when omitted (current behavior). Set false to skip enrichment and fetch the raw body cheaply (raw-fetch mode).",
+      }),
+    // Force scrape.do JS rendering (render=true&super=true) for client-rendered pages.
+    render: z
+      .boolean()
+      .optional()
+      .openapi({
+        description:
+          "Force scrape.do JS rendering (render=true&super=true). Use for client-rendered pages whose content is not in the initial HTML.",
+      }),
     options: ScrapeOptionsSchema.optional(),
     // RunsService passthrough fields
     brandIds: z.array(z.string()).optional(),
@@ -77,6 +95,13 @@ const ScrapeResultSchema = z
     products: z.any().nullable(),
     services: z.any().nullable(),
     rawMarkdown: z.string().nullable(),
+    rawHtml: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          'Raw page HTML. Populated only when options.formats includes "rawHtml"; otherwise null. Request-scoped (not cached).',
+      }),
     createdAt: z.string().or(z.date()),
   })
   .openapi("ScrapeResult");

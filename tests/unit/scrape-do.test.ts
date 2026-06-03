@@ -211,6 +211,61 @@ describe("scrapeUrlWithScrapeDo", () => {
     });
   });
 
+  describe("rawHtml output", () => {
+    it("omits output=markdown and returns raw html when formats includes rawHtml", async () => {
+      const rawBody =
+        '<a href="mailto:press@x.com">x</a><span class="__cf_email__" data-cfemail="abc">[email&#160;protected]</span>';
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(rawBody, { status: 200, headers: { "scrape.do-request-cost": "1" } })
+      );
+
+      const result = await scrapeUrlWithScrapeDo("https://example.com/contact", "token", {
+        formats: ["rawHtml"],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.html).toBe(rawBody);
+      expect(result.markdown).toBeUndefined();
+      expect(result.requestCost).toBe(1);
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.has("output")).toBe(false);
+    });
+
+    it("keeps output=markdown and returns markdown when rawHtml not requested", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("# Hello", { status: 200 })
+      );
+
+      const result = await scrapeUrlWithScrapeDo("https://example.com", "token");
+
+      expect(result.success).toBe(true);
+      expect(result.markdown).toBe("# Hello");
+      expect(result.html).toBeUndefined();
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.get("output")).toBe("markdown");
+    });
+
+    it("requests raw html AND applies render+super overrides together", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response("<html></html>", { status: 200 })
+      );
+
+      await scrapeUrlWithScrapeDo(
+        "https://example.com/contact",
+        "token",
+        { formats: ["rawHtml"] },
+        { render: true, super: true, waitUntil: "networkidle0", customWait: 3000 }
+      );
+
+      const calledUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.has("output")).toBe(false);
+      expect(calledUrl.searchParams.get("render")).toBe("true");
+      expect(calledUrl.searchParams.get("super")).toBe("true");
+    });
+  });
+
   describe("requestCost header parsing", () => {
     it("should return requestCost from scrape.do-request-cost header", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

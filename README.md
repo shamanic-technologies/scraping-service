@@ -33,12 +33,14 @@ Optional tracking headers (injected automatically by workflow-service):
 
 ```json
 {
-  "url": "https://example.com",
+  "url": "https://example.com/contact",
   "provider": "scrape-do",
   "sourceService": "campaign",
   "sourceRefId": "ref_456",
   "skipCache": false,
-  "options": {},
+  "enrich": false,
+  "render": true,
+  "options": { "formats": ["rawHtml"] },
   "brandIds": ["brand_1"],
   "campaignId": "campaign_2",
   "workflowSlug": "gtm-outbound",
@@ -47,6 +49,12 @@ Optional tracking headers (injected automatically by workflow-service):
 ```
 
 `provider` is optional — defaults to `"scrape-do"`. Accepted values: `"scrape-do"`, `"firecrawl"`.
+
+`enrich` is optional. Omitted ⇒ `true` (current behavior: company-info enrichment runs). Set `false` for **raw-fetch mode** — returns the raw page body cheaply, skips company-info enrichment, and bypasses the shared company-info cache/result store (the row is not persisted). scrape.do cost is still declared on the forwarded run in both modes.
+
+`render` is optional. Set `true` to force scrape.do JS rendering (`render=true&super=true`) — use for client-rendered pages whose content is not in the initial HTML. The default ladder (basic → render → render+super → firecrawl) already escalates automatically on failure.
+
+`result.rawHtml` is populated (raw page HTML) only when `options.formats` includes `"rawHtml"`; otherwise `null`. It is request-scoped — never cached. Use it to extract `mailto:` links and decode Cloudflare `data-cfemail` obfuscation, which markdown conversion strips.
 
 Returns `{ cached: boolean, provider: string, requestId: string, runId: string, result: {...} }`. Returns `402` with `{ error, balance_cents, required_cents }` when the org has insufficient credits (platform key only; BYOK skips billing check).
 

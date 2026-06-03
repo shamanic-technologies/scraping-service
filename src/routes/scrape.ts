@@ -9,7 +9,7 @@ import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
-import { sanitizeForPostgres, MAX_MARKDOWN_LENGTH } from "../lib/sanitize.js";
+import { sanitizeForPostgres, MAX_MARKDOWN_LENGTH, MAX_HTML_LENGTH } from "../lib/sanitize.js";
 
 const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
 
@@ -52,6 +52,8 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       sourceRefId,
       options,
       skipCache,
+      enrich,
+      render,
       brandIds,
       campaignId,
       workflowSlug,
@@ -59,6 +61,12 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     } = parsed.data;
 
     const provider: ScrapingProvider = requestedProvider ?? DEFAULT_PROVIDER;
+
+    // Raw-fetch mode: caller wants the raw page body cheaply, WITHOUT company-info
+    // enrichment and WITHOUT polluting the shared company-info cache/result store.
+    // Triggered by enrich:false OR a rawHtml format request.
+    const wantsRawHtml = options?.formats?.includes("rawHtml") ?? false;
+    const rawFetchMode = enrich === false || wantsRawHtml;
 
     const orgId = (req as AuthenticatedRequest).orgId!;
     const userId = (req as AuthenticatedRequest).userId!;
@@ -72,8 +80,10 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
 
     const normalized = normalizeUrl(url);
 
-    // Check cache first (unless skipCache is true)
-    if (!skipCache) {
+    // Check cache first (unless skipCache is true).
+    // Raw-fetch mode always scrapes fresh: rawHtml is not persisted, and we must
+    // not serve a markdown-only cached row when raw HTML was requested.
+    if (!skipCache && !rawFetchMode) {
       const cached = await db.query.scrapeCache.findFirst({
         where: and(
           eq(scrapeCache.normalizedUrl, normalized),
@@ -201,6 +211,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           url,
           scrapeDoApiKey: providerApiKey,
           options: options || {},
+          forceRender: render === true,
           resolveFirecrawlKey: async () => {
             const decrypted = await resolveKey({
               provider: "firecrawl",
@@ -248,6 +259,51 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         error: scrapeResponse.error || "Scrape failed",
         requestId: request.id,
         runId,
+      });
+    }
+
+    // Raw-fetch mode: return the raw body cheaply, skip company-info enrichment,
+    // and do NOT touch the shared company-info cache/result store. scrape.do cost
+    // is still declared on the forwarded run (zero-direct-spend invariant preserved).
+    if (rawFetchMode) {
+      const rawHtml = sanitizeForPostgres(scrapeResponse.html, MAX_HTML_LENGTH);
+      const rawMarkdown = sanitizeForPostgres(scrapeResponse.markdown, MAX_MARKDOWN_LENGTH);
+      const rawCompanyInfo =
+        enrich === false
+          ? { companyName: null, description: null, industry: null }
+          : extractCompanyInfo(scrapeResponse);
+
+      await db
+        .update(scrapeRequests)
+        .set({ status: "completed", provider: actualProvider, completedAt: new Date() })
+        .where(eq(scrapeRequests.id, request.id));
+
+      if (runId) {
+        const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+        Promise.all([
+          addCosts(runId, [{ costName: actualCostName, quantity: actualRequestCost, costSource: actualKeySource }], runIdentity),
+          updateRunStatus(runId, "completed", runIdentity),
+        ]).catch((err) => console.error("[scraping-service] Failed to finalize run:", err));
+      }
+
+      return res.json({
+        cached: false,
+        provider: actualProvider,
+        requestId: request.id,
+        runId,
+        result: formatResult(
+          {
+            id: request.id,
+            url,
+            companyName: rawCompanyInfo.companyName,
+            description: rawCompanyInfo.description,
+            industry: rawCompanyInfo.industry,
+            website: url,
+            rawMarkdown,
+            createdAt: new Date(),
+          },
+          rawHtml
+        ),
       });
     }
 
@@ -462,26 +518,29 @@ function extractCompanyInfo(response: { markdown?: string; metadata?: any }) {
 }
 
 /**
- * Format result for API response
+ * Format result for API response.
+ * `rawHtml` is request-scoped (never persisted): the fresh-scrape path passes the
+ * scraped body; cache-hit / by-url / by-id read paths leave it null.
  */
-function formatResult(result: any) {
+function formatResult(result: any, rawHtml: string | null = null) {
   return {
     id: result.id,
     url: result.url,
-    companyName: result.companyName,
-    description: result.description,
-    industry: result.industry,
-    employeeCount: result.employeeCount,
-    foundedYear: result.foundedYear,
-    headquarters: result.headquarters,
-    website: result.website,
-    email: result.email,
-    phone: result.phone,
-    linkedinUrl: result.linkedinUrl,
-    twitterUrl: result.twitterUrl,
-    products: result.products,
-    services: result.services,
-    rawMarkdown: result.rawMarkdown,
+    companyName: result.companyName ?? null,
+    description: result.description ?? null,
+    industry: result.industry ?? null,
+    employeeCount: result.employeeCount ?? null,
+    foundedYear: result.foundedYear ?? null,
+    headquarters: result.headquarters ?? null,
+    website: result.website ?? null,
+    email: result.email ?? null,
+    phone: result.phone ?? null,
+    linkedinUrl: result.linkedinUrl ?? null,
+    twitterUrl: result.twitterUrl ?? null,
+    products: result.products ?? null,
+    services: result.services ?? null,
+    rawMarkdown: result.rawMarkdown ?? null,
+    rawHtml,
     createdAt: result.createdAt,
   };
 }
