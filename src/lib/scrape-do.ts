@@ -23,13 +23,19 @@ export async function scrapeUrlWithScrapeDo(
   overrides: ScrapeDoOverrides = {}
 ): Promise<ScrapeResponse> {
   const baseTimeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+  // When the caller wants raw HTML, return scrape.do's default HTML output
+  // (markdown conversion strips mailto: anchors and data-cfemail attributes).
+  const wantsRawHtml = options.formats?.includes("rawHtml") ?? false;
 
   const attempt = async (timeout: number): Promise<ScrapeResponse> => {
     const params = new URLSearchParams({
       token: apiKey,
       url,
-      output: "markdown",
     });
+
+    if (!wantsRawHtml) {
+      params.set("output", "markdown");
+    }
 
     if (options.waitFor) {
       params.set("render", "true");
@@ -69,17 +75,15 @@ export async function scrapeUrlWithScrapeDo(
       };
     }
 
-    const markdown = await response.text();
+    const body = await response.text();
 
     const requestCostHeader = response.headers.get("scrape.do-request-cost");
     const parsedCost = requestCostHeader ? Number(requestCostHeader) : NaN;
     const requestCost = Number.isFinite(parsedCost) ? parsedCost : undefined;
 
-    return {
-      success: true,
-      markdown,
-      requestCost,
-    };
+    return wantsRawHtml
+      ? { success: true, html: body, requestCost }
+      : { success: true, markdown: body, requestCost };
   };
 
   try {

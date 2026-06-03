@@ -1,6 +1,10 @@
 // Max raw markdown size: 512KB (PDFs can produce megabytes of content)
 export const MAX_MARKDOWN_LENGTH = 512 * 1024;
 
+// Max raw HTML size: 2MB (full page HTML is larger than markdown).
+// rawHtml is request-scoped (never persisted), so this only caps the response payload.
+export const MAX_HTML_LENGTH = 2 * 1024 * 1024;
+
 /**
  * Strip null bytes and optionally truncate text for PostgreSQL compatibility.
  * PostgreSQL text columns reject \x00 (null bytes), which appear in scraped PDF content.
