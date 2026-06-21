@@ -69,6 +69,43 @@ describe("key-client", () => {
       expect(headers["x-run-id"]).toBe("run-456");
     });
 
+    it("should forward x-audience-id header when audienceId is provided", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-key", keySource: "org" }),
+      });
+
+      await resolveKey({
+        provider: "firecrawl",
+        orgId: "org_abc",
+        userId: "user_123",
+        audienceId: "aud_42",
+        caller: { method: "POST", path: "/scrape" },
+      });
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers["x-audience-id"]).toBe("aud_42");
+    });
+
+    it("should not include x-audience-id header when audienceId is undefined", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ provider: "firecrawl", key: "fc-key", keySource: "org" }),
+      });
+
+      await resolveKey({
+        provider: "firecrawl",
+        orgId: "org_abc",
+        userId: "user_123",
+        caller: { method: "POST", path: "/scrape" },
+      });
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers).not.toHaveProperty("x-audience-id");
+    });
+
     it("should not include x-run-id header when runId is undefined", async () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,

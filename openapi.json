@@ -130,6 +130,11 @@
             "type": "string",
             "nullable": true
           },
+          "rawHtml": {
+            "type": "string",
+            "nullable": true,
+            "description": "Raw page HTML. Populated only when options.formats includes \"rawHtml\"; otherwise null. Request-scoped (not cached)."
+          },
           "createdAt": {
             "anyOf": [
               {
@@ -156,6 +161,7 @@
           "linkedinUrl",
           "twitterUrl",
           "rawMarkdown",
+          "rawHtml",
           "createdAt"
         ]
       },
@@ -278,6 +284,14 @@
             "type": "boolean",
             "default": false
           },
+          "enrich": {
+            "type": "boolean",
+            "description": "Run company-info enrichment. Defaults to true when omitted (current behavior). Set false to skip enrichment and fetch the raw body cheaply (raw-fetch mode)."
+          },
+          "render": {
+            "type": "boolean",
+            "description": "Force scrape.do JS rendering (render=true&super=true). Use for client-rendered pages whose content is not in the initial HTML."
+          },
           "options": {
             "$ref": "#/components/schemas/ScrapeOptions"
           },
@@ -294,6 +308,9 @@
             "type": "string"
           },
           "featureSlug": {
+            "type": "string"
+          },
+          "audienceId": {
             "type": "string"
           }
         },
@@ -459,6 +476,9 @@
           },
           "featureSlug": {
             "type": "string"
+          },
+          "audienceId": {
+            "type": "string"
           }
         },
         "required": [
@@ -547,6 +567,9 @@
             "type": "string"
           },
           "featureSlug": {
+            "type": "string"
+          },
+          "audienceId": {
             "type": "string"
           }
         },

@@ -65,10 +65,14 @@ export async function scrapeUrl(
       };
     }
 
+    // When the caller requested rawHtml, prefer Firecrawl's raw HTML field
+    // (markdown/cleaned html strips mailto: and data-cfemail attributes).
+    const wantsRawHtml = options.formats?.includes("rawHtml") ?? false;
+
     return {
       success: true,
       markdown: result.markdown,
-      html: result.html,
+      html: wantsRawHtml ? ((result as any).rawHtml ?? result.html) : result.html,
       metadata: result.metadata,
     };
   };

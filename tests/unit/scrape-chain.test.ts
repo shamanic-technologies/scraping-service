@@ -199,6 +199,57 @@ describe("scrapeWithEscalation", () => {
     logSpy.mockRestore();
   });
 
+  describe("forceRender", () => {
+    it("uses only the render+super scrape-do level when forceRender is true", async () => {
+      mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
+        success: true,
+        html: "<html>rendered</html>",
+        requestCost: 25,
+      });
+
+      const result = await scrapeWithEscalation(
+        { ...baseParams, options: { formats: ["rawHtml"] }, forceRender: true },
+        "platform"
+      );
+
+      expect(result.response.success).toBe(true);
+      expect(result.levelName).toBe("scrape-do-render-super");
+      // basic + render rungs skipped — only one scrape-do call
+      expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(1);
+      expect(mockScrapeUrlWithScrapeDo.mock.calls[0][3]).toEqual({
+        render: true,
+        super: true,
+        waitUntil: "networkidle0",
+        customWait: 3000,
+      });
+    });
+
+    it("falls back to firecrawl when the forced render+super level fails", async () => {
+      mockScrapeUrlWithScrapeDo.mockResolvedValue({ success: false, error: "blocked" });
+      mockScrapeUrl.mockResolvedValueOnce({ success: true, html: "<html>fc</html>" });
+
+      const result = await scrapeWithEscalation(
+        { ...baseParams, options: { formats: ["rawHtml"] }, forceRender: true },
+        "platform"
+      );
+
+      expect(result.provider).toBe("firecrawl");
+      expect(result.levelName).toBe("firecrawl-fallback");
+      // Only the render+super scrape-do attempt, then firecrawl
+      expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(1);
+      expect(mockScrapeUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs the full ladder when forceRender is omitted (regression)", async () => {
+      mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({ success: true, markdown: "# ok", requestCost: 1 });
+
+      const result = await scrapeWithEscalation(baseParams, "platform");
+
+      expect(result.levelName).toBe("scrape-do-basic");
+      expect(mockScrapeUrlWithScrapeDo.mock.calls[0][3]).toBeUndefined();
+    });
+  });
+
   it("should pass caller options through to every scrape-do level", async () => {
     const options = { waitFor: 5000, timeout: 30000 };
     mockScrapeUrlWithScrapeDo

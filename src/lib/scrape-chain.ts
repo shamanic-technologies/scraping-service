@@ -38,6 +38,12 @@ export interface ScrapeChainParams {
   scrapeDoApiKey: string;
   options: ScrapeOptions;
   resolveFirecrawlKey: () => Promise<{ key: string; keySource: "org" | "platform" }>;
+  /**
+   * Force scrape.do JS rendering: skip the basic + render rungs and go straight
+   * to render+super (the validated JS-render technique), then firecrawl fallback.
+   * Used by callers managing their own retry ladder (e.g. editorial-email discovery).
+   */
+  forceRender?: boolean;
 }
 
 export interface ScrapeChainResult {
@@ -65,7 +71,14 @@ export async function scrapeWithEscalation(
 ): Promise<ScrapeChainResult> {
   let lastError: string | undefined;
 
-  for (const level of ESCALATION_LEVELS) {
+  // forceRender: skip basic + render rungs, use render+super then firecrawl fallback.
+  const levels = params.forceRender
+    ? ESCALATION_LEVELS.filter(
+        (l) => l.name === "scrape-do-render-super" || l.provider === "firecrawl"
+      )
+    : ESCALATION_LEVELS;
+
+  for (const level of levels) {
     if (level.provider === "scrape-do") {
       const response = await scrapeUrlWithScrapeDo(
         params.url,

@@ -34,6 +34,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       campaignId,
       workflowSlug,
       featureSlug,
+      audienceId,
     } = parsed.data;
 
     const orgId = (req as AuthenticatedRequest).orgId!;
@@ -45,6 +46,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     const effectiveBrandIds = (req as AuthenticatedRequest).brandIds || brandIds;
     const effectiveWorkflowSlug = (req as AuthenticatedRequest).workflowSlug || workflowSlug;
     const effectiveFeatureSlug = (req as AuthenticatedRequest).featureSlug || featureSlug;
+    const effectiveAudienceId = (req as AuthenticatedRequest).audienceId || audienceId;
 
     // Resolve Firecrawl key via key-service (auto-resolves org/platform source)
     let firecrawlApiKey: string;
@@ -59,6 +61,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
         brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
+        audienceId: effectiveAudienceId,
         caller: { method: "POST", path: "/map" },
       });
       firecrawlApiKey = decrypted.key;
@@ -78,7 +81,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     // Authorize credits with billing-service (platform keys only)
     if (keySource === "platform") {
       try {
-        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
         const auth = await authorizeCredits(
           [{ costName: "firecrawl-map-credit", quantity: 1 }],
           "firecrawl-map-credit",
@@ -101,8 +104,8 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
     // x-run-id = parentRunId so runs-service sets it as the parent
     try {
       const run = await createRun(
-        { taskName: "map", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug },
-        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }
+        { taskName: "map", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId},
+        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId}
       );
       runId = run.id;
     } catch (err) {
@@ -121,7 +124,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     if (!result.success) {
       if (runId) {
-        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }).catch((err) =>
+        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId}).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -135,7 +138,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
-      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
       Promise.all([
         addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),

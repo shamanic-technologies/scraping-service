@@ -26,6 +26,16 @@ URL scraping microservice with multi-provider support (Scrape.do default, Firecr
 - `tests/` — Test files (`*.test.ts`)
 - `openapi.json` — Auto-generated, do NOT edit manually
 
+### Migrations gotcha (READ before any schema change)
+
+The `drizzle/` folder is **empty** and the prod schema was applied via manual `db:push`, NOT migration files. `src/index.ts` calls `migrate(db, { migrationsFolder: "./drizzle" })` on boot, but with an empty folder that is a **no-op**. So the generic "every service auto-runs migrations at boot" assumption does NOT hold here — a new column will **silently never be created in prod** if you just edit `src/db/schema.ts` and ship.
+
+When a schema change is genuinely needed, pick a mechanism explicitly:
+- **Migration path:** `npm run db:generate` to emit `drizzle/<n>_*.sql` (boot `migrate()` then applies it). Make the SQL idempotent.
+- **Manual push:** `npm run db:push` against the target DB (writes to prod DB → requires approval).
+
+Prefer avoiding schema changes when the data is request-scoped: e.g. `result.rawHtml` is returned inline from the live scrape and never persisted, so it needed no column.
+
 ## README Maintenance (MANDATORY)
 
 **Every time you make a code change, you MUST check if the README.md needs updating.**

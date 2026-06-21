@@ -92,6 +92,43 @@ describe("runs-client", () => {
       expect(body).not.toHaveProperty("brandIds");
       expect(body).not.toHaveProperty("campaignId");
       expect(body).not.toHaveProperty("workflowSlug");
+      expect(body).not.toHaveProperty("audienceId");
+    });
+
+    // Regression: audienceId must reach runs-service as BOTH the x-audience-id
+    // header AND the run body, so the run row is tagged for per-audience cost
+    // attribution (SUM(cost) GROUP BY COALESCE(runs_costs.audience_id, runs.audience_id)).
+    it("should send x-audience-id header and audienceId in body when provided", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: "run-aud" }),
+      });
+
+      await createRun(
+        { taskName: "scrape", audienceId: "aud_42" },
+        { orgId: "org_abc", userId: "user_123", audienceId: "aud_42" }
+      );
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers["x-audience-id"]).toBe("aud_42");
+
+      const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(body.audienceId).toBe("aud_42");
+    });
+
+    it("should not include x-audience-id header when audienceId is undefined", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: "run-noaud" }),
+      });
+
+      await createRun(
+        { taskName: "scrape" },
+        { orgId: "org_abc", userId: "user_123" }
+      );
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers).not.toHaveProperty("x-audience-id");
     });
 
     it("should throw on non-ok response", async () => {
@@ -168,6 +205,22 @@ describe("runs-client", () => {
           }),
         })
       );
+    });
+
+    it("should forward x-audience-id header on cost declaration", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ costs: [] }),
+      });
+
+      await addCosts(
+        "run-aud",
+        [{ costName: "scrape-do-credit", quantity: 5, costSource: "platform" as const }],
+        { orgId: "org_abc", userId: "user_123", runId: "run-aud", audienceId: "aud_42" }
+      );
+
+      const headers = fetchSpy.mock.calls[0][1].headers;
+      expect(headers["x-audience-id"]).toBe("aud_42");
     });
 
     it("should pass costSource 'platform' for platform keys", async () => {
