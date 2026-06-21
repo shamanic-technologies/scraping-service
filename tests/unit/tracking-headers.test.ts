@@ -89,6 +89,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           brandIds: req.brandIds,
           workflowSlug: req.workflowSlug,
           featureSlug: req.featureSlug,
+          audienceId: req.audienceId,
         });
       });
     });
@@ -104,6 +105,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .set("X-Brand-Id", "brand_456")
         .set("X-Workflow-Slug", "gtm-outbound")
         .set("X-Feature-Slug", "feature_789")
+        .set("X-Audience-Id", "audience_321")
         .send({});
 
       expect(response.status).toBe(200);
@@ -111,6 +113,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(response.body.brandIds).toEqual(["brand_456"]);
       expect(response.body.workflowSlug).toBe("gtm-outbound");
       expect(response.body.featureSlug).toBe("feature_789");
+      expect(response.body.audienceId).toBe("audience_321");
     });
 
     it("should parse CSV x-brand-id header into brandIds array", async () => {
@@ -155,6 +158,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
       expect(response.body.brandIds).toBeUndefined();
       expect(response.body.workflowSlug).toBeUndefined();
       expect(response.body.featureSlug).toBeUndefined();
+      expect(response.body.audienceId).toBeUndefined();
     });
   });
 
@@ -177,6 +181,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           : undefined;
         req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
+        req.audienceId = req.headers["x-audience-id"] || undefined;
         next();
       });
       app.use(mapRoutes);
@@ -189,6 +194,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .set("X-Brand-Id", "brand_def")
         .set("X-Workflow-Slug", "research-flow")
         .set("X-Feature-Slug", "slug_abc")
+        .set("X-Audience-Id", "aud_abc")
         .send({ url: "https://example.com" });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
@@ -197,6 +203,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           brandIds: ["brand_def"],
           workflowSlug: "research-flow",
           featureSlug: "slug_abc",
+          audienceId: "aud_abc",
         }),
         expect.objectContaining({
           campaignId: "camp_abc",
@@ -214,6 +221,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .set("X-Brand-Id", "brand_key")
         .set("X-Workflow-Slug", "key-flow")
         .set("X-Feature-Slug", "slug_key")
+        .set("X-Audience-Id", "aud_key")
         .send({ url: "https://example.com" });
 
       expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
@@ -222,6 +230,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           brandIds: ["brand_key"],
           workflowSlug: "key-flow",
           featureSlug: "slug_key",
+          audienceId: "aud_key",
         })
       );
     });
@@ -267,6 +276,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           : undefined;
         req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
+        req.audienceId = req.headers["x-audience-id"] || undefined;
         next();
       });
       app.use(mapRoutes);
@@ -340,6 +350,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           : undefined;
         req.workflowSlug = req.headers["x-workflow-slug"] || undefined;
         req.featureSlug = req.headers["x-feature-slug"] || undefined;
+        req.audienceId = req.headers["x-audience-id"] || undefined;
         next();
       });
       app.use(scrapeRoutes);
@@ -372,6 +383,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .set("X-Brand-Id", "brand_scrape")
         .set("X-Workflow-Slug", "scrape-flow")
         .set("X-Feature-Slug", "slug_scrape")
+        .set("X-Audience-Id", "aud_scrape")
         .send({ url: "https://example.com" });
 
       expect(mockCreateRun).toHaveBeenCalledWith(
@@ -380,6 +392,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           brandIds: ["brand_scrape"],
           workflowSlug: "scrape-flow",
           featureSlug: "slug_scrape",
+          audienceId: "aud_scrape",
         }),
         expect.objectContaining({
           campaignId: "camp_scrape",
@@ -397,6 +410,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .set("X-Brand-Id", "brand_db")
         .set("X-Workflow-Slug", "db-flow")
         .set("X-Feature-Slug", "slug_db")
+        .set("X-Audience-Id", "aud_db")
         .send({ url: "https://example.com" });
 
       expect(mockValues).toHaveBeenCalledWith(
@@ -405,6 +419,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           brandIds: ["brand_db"],
           workflowSlug: "db-flow",
           featureSlug: "slug_db",
+          audienceId: "aud_db",
         })
       );
     });
@@ -416,6 +431,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
         .set("X-Brand-Id", "brand_key_s")
         .set("X-Workflow-Slug", "key-flow-s")
         .set("X-Feature-Slug", "slug_key_s")
+        .set("X-Audience-Id", "aud_key_s")
         .send({ url: "https://example.com" });
 
       expect(vi.mocked(resolveKey)).toHaveBeenCalledWith(
@@ -424,6 +440,7 @@ describe("Tracking headers (x-campaign-id, x-brand-id, x-workflow-slug)", () => 
           brandIds: ["brand_key_s"],
           workflowSlug: "key-flow-s",
           featureSlug: "slug_key_s",
+          audienceId: "aud_key_s",
         })
       );
     });

@@ -15,6 +15,7 @@ export interface IdentityContext {
   brandIds?: string[];
   workflowSlug?: string;
   featureSlug?: string;
+  audienceId?: string;
 }
 
 async function callRunsService<T>(
@@ -45,6 +46,7 @@ export interface CreateRunParams {
   campaignId?: string;
   workflowSlug?: string;
   featureSlug?: string;
+  audienceId?: string;
 }
 
 export interface Run {
@@ -55,6 +57,7 @@ export interface Run {
   campaignId: string | null;
   workflowSlug: string | null;
   featureSlug: string | null;
+  audienceId: string | null;
   serviceName: string;
   taskName: string;
   status: string;
@@ -95,6 +98,9 @@ function identityHeaders(identity: IdentityContext): Record<string, string> {
   if (identity.featureSlug) {
     headers["x-feature-slug"] = identity.featureSlug;
   }
+  if (identity.audienceId) {
+    headers["x-audience-id"] = identity.audienceId;
+  }
   return headers;
 }
 
@@ -109,6 +115,7 @@ export async function createRun(params: CreateRunParams, identity: IdentityConte
       ...(params.campaignId && { campaignId: params.campaignId }),
       ...(params.workflowSlug && { workflowSlug: params.workflowSlug }),
       ...(params.featureSlug && { featureSlug: params.featureSlug }),
+      ...(params.audienceId && { audienceId: params.audienceId }),
     }),
   });
 }

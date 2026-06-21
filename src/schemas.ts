@@ -72,6 +72,7 @@ export const ScrapeRequestSchema = z
     campaignId: z.string().optional(),
     workflowSlug: z.string().optional(),
     featureSlug: z.string().optional(),
+    audienceId: z.string().optional(),
   })
   .openapi("ScrapeRequest");
 
@@ -157,6 +158,7 @@ export const ExtractRequestSchema = z
     campaignId: z.string().optional(),
     workflowSlug: z.string().optional(),
     featureSlug: z.string().optional(),
+    audienceId: z.string().optional(),
   })
   .openapi("ExtractRequest");
 
@@ -203,6 +205,7 @@ export const MapRequestSchema = z
     campaignId: z.string().optional(),
     workflowSlug: z.string().optional(),
     featureSlug: z.string().optional(),
+    audienceId: z.string().optional(),
   })
   .openapi("MapRequest");
 

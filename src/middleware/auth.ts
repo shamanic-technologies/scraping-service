@@ -9,6 +9,7 @@ export interface AuthenticatedRequest extends Request {
   brandIds?: string[];
   workflowSlug?: string;
   featureSlug?: string;
+  audienceId?: string;
 }
 
 /**
@@ -78,6 +79,9 @@ export function serviceAuth(
     : undefined;
   req.workflowSlug = req.headers["x-workflow-slug"] as string | undefined;
   req.featureSlug = req.headers["x-feature-slug"] as string | undefined;
+  // x-audience-id: cost attribution per audience (priority audience chosen by
+  // campaign-service at run start). Optional — absent outside campaign flow.
+  req.audienceId = req.headers["x-audience-id"] as string | undefined;
 
   next();
 }
