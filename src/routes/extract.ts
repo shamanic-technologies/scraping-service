@@ -31,7 +31,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    const { urls, skipCache, cacheTtlDays, brandIds, campaignId, workflowSlug, featureSlug } =
+    const { urls, skipCache, cacheTtlDays, brandIds, campaignId, workflowSlug, featureSlug, audienceId } =
       parsed.data;
 
     const orgId = req.orgId!;
@@ -42,6 +42,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
     const effectiveBrandIds = req.brandIds || brandIds;
     const effectiveWorkflowSlug = req.workflowSlug || workflowSlug;
     const effectiveFeatureSlug = req.featureSlug || featureSlug;
+    const effectiveAudienceId = req.audienceId || audienceId;
 
     // Check cache for each URL
     const normalizedUrls = urls.map((url) => ({
@@ -113,6 +114,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
+        audienceId: effectiveAudienceId,
         caller: { method: "POST", path: "/extract" },
       });
       firecrawlApiKey = decrypted.key;
@@ -141,6 +143,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           brandIds: effectiveBrandIds,
           workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
+          audienceId: effectiveAudienceId,
         };
         const auth = await authorizeCredits(
           [
@@ -176,6 +179,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           campaignId: effectiveCampaignId,
           workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
+          audienceId: effectiveAudienceId,
         },
         {
           orgId,
@@ -185,6 +189,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
           brandIds: effectiveBrandIds,
           workflowSlug: effectiveWorkflowSlug,
           featureSlug: effectiveFeatureSlug,
+          audienceId: effectiveAudienceId,
         }
       );
       runId = run.id;
@@ -280,6 +285,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
         brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
+        audienceId: effectiveAudienceId,
       };
       const costItems = totalTokensUsed > 0
         ? [{ costName: "firecrawl-extract-token", quantity: totalTokensUsed, costSource: keySource }]

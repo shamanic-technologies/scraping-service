@@ -58,6 +58,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       campaignId,
       workflowSlug,
       featureSlug,
+      audienceId,
     } = parsed.data;
 
     const provider: ScrapingProvider = requestedProvider ?? DEFAULT_PROVIDER;
@@ -77,6 +78,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     const effectiveBrandIds = (req as AuthenticatedRequest).brandIds || brandIds;
     const effectiveWorkflowSlug = (req as AuthenticatedRequest).workflowSlug || workflowSlug;
     const effectiveFeatureSlug = (req as AuthenticatedRequest).featureSlug || featureSlug;
+    const effectiveAudienceId = (req as AuthenticatedRequest).audienceId || audienceId;
 
     const normalized = normalizeUrl(url);
 
@@ -120,6 +122,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
+        audienceId: effectiveAudienceId,
         caller: { method: "POST", path: "/scrape" },
       });
       providerApiKey = decrypted.key;
@@ -143,7 +146,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     const authQuantity = provider === "scrape-do" ? 25 : 1;
     if (keySource === "platform") {
       try {
-        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+        const billingIdentity = { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
         const auth = await authorizeCredits(
           [{ costName: authCostName, quantity: authQuantity }],
           authCostName,
@@ -166,8 +169,8 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // x-run-id = parentRunId so runs-service sets it as the parent
     try {
       const run = await createRun(
-        { taskName: "scrape", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug },
-        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }
+        { taskName: "scrape", brandIds: effectiveBrandIds, campaignId: effectiveCampaignId, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId},
+        { orgId, userId, runId: parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId}
       );
       runId = run.id;
     } catch (err) {
@@ -186,6 +189,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         brandIds: effectiveBrandIds,
         workflowSlug: effectiveWorkflowSlug,
         featureSlug: effectiveFeatureSlug,
+        audienceId: effectiveAudienceId,
         url,
         provider,
         options: options as any,
@@ -250,7 +254,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         .where(eq(scrapeRequests.id, request.id));
 
       if (runId) {
-        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug }).catch((err) =>
+        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId}).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -279,7 +283,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         .where(eq(scrapeRequests.id, request.id));
 
       if (runId) {
-        const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+        const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
         Promise.all([
           addCosts(runId, [{ costName: actualCostName, quantity: actualRequestCost, costSource: actualKeySource }], runIdentity),
           updateRunStatus(runId, "completed", runIdentity),
@@ -383,7 +387,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
-      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug };
+      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
       Promise.all([
         addCosts(runId, [{ costName: actualCostName, quantity: actualRequestCost, costSource: actualKeySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),

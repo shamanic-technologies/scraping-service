@@ -37,6 +37,9 @@ export const scrapeRequests = pgTable(
     brandIds: text("brand_ids").array(),
     workflowSlug: text("workflow_slug"),
     featureSlug: text("feature_slug"),
+    audienceId: text("audience_id"), // cost attribution per audience
+
+
 
     // Status tracking
     status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
