@@ -1,5 +1,6 @@
 import { ScrapeOptions, ScrapeResponse, scrapeUrl } from "./firecrawl.js";
 import { scrapeUrlWithScrapeDo, ScrapeDoOverrides } from "./scrape-do.js";
+import { isThinContent, visibleTextLength } from "./thin-content.js";
 
 interface EscalationLevel {
   name: string;
@@ -78,7 +79,8 @@ export async function scrapeWithEscalation(
       )
     : ESCALATION_LEVELS;
 
-  for (const level of levels) {
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i];
     if (level.provider === "scrape-do") {
       const response = await scrapeUrlWithScrapeDo(
         params.url,
@@ -88,6 +90,26 @@ export async function scrapeWithEscalation(
       );
 
       if (response.success) {
+        // Thin-content escalation: a non-render rung can succeed on a client-rendered
+        // SPA shell (HTTP 200 + bytes, but near-empty visible text). When that happens
+        // and a JS-render rung is still ahead, escalate instead of returning the shell.
+        // Render rungs are exempt — they're the most capable scrape.do strategy, so a
+        // thin result there is a legitimately-empty page, not a missed render (and this
+        // keeps escalation bounded: no infinite climb, forceRender starts at render).
+        const usedRender = level.scrapeDoOverrides?.render === true;
+        const hasRenderAhead = levels
+          .slice(i + 1)
+          .some((l) => l.provider === "scrape-do" && l.scrapeDoOverrides?.render === true);
+        const content = response.markdown ?? response.html;
+
+        if (!usedRender && hasRenderAhead && isThinContent(content)) {
+          console.log(
+            `[scraping-service] Thin content (${visibleTextLength(content)} visible chars) at level ${level.name} for ${params.url}, escalating to JS render`
+          );
+          lastError = `thin content at ${level.name}`;
+          continue;
+        }
+
         console.log(`[scraping-service] Scrape succeeded at level ${level.name} for ${params.url}`);
         return {
           response,

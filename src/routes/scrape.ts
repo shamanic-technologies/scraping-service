@@ -10,6 +10,7 @@ import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
 import { sanitizeForPostgres, MAX_MARKDOWN_LENGTH, MAX_HTML_LENGTH } from "../lib/sanitize.js";
+import { isThinContent } from "../lib/thin-content.js";
 
 const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
 
@@ -100,7 +101,11 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           where: eq(scrapeResults.id, cached.resultId),
         });
 
-        if (result) {
+        // A row cached BEFORE thin-content escalation existed may hold an SPA shell
+        // (near-empty visible text). Don't let it mask the escalation — treat a thin
+        // cached result as a miss and fall through to a fresh scrape, which will now
+        // escalate to JS render and overwrite the shell.
+        if (result && !isThinContent(result.rawMarkdown)) {
           return res.json({
             cached: true,
             result: formatResult(result),
