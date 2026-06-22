@@ -21,15 +21,20 @@ const baseParams: ScrapeChainParams = {
   resolveFirecrawlKey: vi.fn().mockResolvedValue({ key: "fc-key", keySource: "platform" as const }),
 };
 
+// Rich markdown whose visible text is comfortably above THIN_CONTENT_MIN_CHARS (200),
+// so a successful basic rung is NOT treated as a thin SPA shell.
+const RICH_MARKDOWN =
+  "# Acme\n\nAcme builds developer tools for payment infrastructure. ".repeat(10);
+
 describe("scrapeWithEscalation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should return immediately when level 1 (basic) succeeds", async () => {
+  it("should return immediately when level 1 (basic) succeeds with rich content", async () => {
     mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
       success: true,
-      markdown: "# Hello",
+      markdown: RICH_MARKDOWN,
       requestCost: 1,
     });
 
@@ -241,12 +246,82 @@ describe("scrapeWithEscalation", () => {
     });
 
     it("runs the full ladder when forceRender is omitted (regression)", async () => {
-      mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({ success: true, markdown: "# ok", requestCost: 1 });
+      mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({ success: true, markdown: RICH_MARKDOWN, requestCost: 1 });
 
       const result = await scrapeWithEscalation(baseParams, "platform");
 
       expect(result.levelName).toBe("scrape-do-basic");
       expect(mockScrapeUrlWithScrapeDo.mock.calls[0][3]).toBeUndefined();
+    });
+  });
+
+  describe("thin-content escalation", () => {
+    // An SPA shell: HTTP 200 + body, but ~32 visible chars (the dialogbrain.com bug).
+    const SPA_SHELL = "DialogBrain Skip to main content";
+
+    it("escalates from basic to render when basic returns a thin SPA shell", async () => {
+      mockScrapeUrlWithScrapeDo
+        .mockResolvedValueOnce({ success: true, markdown: SPA_SHELL, requestCost: 1 })
+        .mockResolvedValueOnce({ success: true, markdown: RICH_MARKDOWN, requestCost: 5 });
+
+      const result = await scrapeWithEscalation(baseParams, "platform");
+
+      // Returns the RICH render result, not the shell.
+      expect(result.response.success).toBe(true);
+      expect(result.response.markdown).toBe(RICH_MARKDOWN);
+      expect(result.levelName).toBe("scrape-do-render");
+      expect(result.requestCost).toBe(5);
+
+      expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(2);
+      // basic rung had no overrides; render rung forced render.
+      expect(mockScrapeUrlWithScrapeDo.mock.calls[0][3]).toBeUndefined();
+      expect(mockScrapeUrlWithScrapeDo.mock.calls[1][3]).toEqual({
+        render: true, waitUntil: "networkidle0", customWait: 3000,
+      });
+    });
+
+    it("does NOT escalate (no extra render cost) when basic returns rich content", async () => {
+      mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
+        success: true, markdown: RICH_MARKDOWN, requestCost: 1,
+      });
+
+      const result = await scrapeWithEscalation(baseParams, "platform");
+
+      expect(result.levelName).toBe("scrape-do-basic");
+      // Only ONE scrape-do call — the render rung (more expensive) is never reached.
+      expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(1);
+    });
+
+    it("is bounded: a thin result at a render rung is returned, not re-escalated", async () => {
+      // basic thin → escalate to render; render ALSO returns thin (genuinely sparse page).
+      // Render is the most capable scrape.do rung, so its thin result is accepted — no loop.
+      mockScrapeUrlWithScrapeDo
+        .mockResolvedValueOnce({ success: true, markdown: SPA_SHELL, requestCost: 1 })
+        .mockResolvedValueOnce({ success: true, markdown: "Still sparse", requestCost: 5 });
+
+      const result = await scrapeWithEscalation(baseParams, "platform");
+
+      expect(result.levelName).toBe("scrape-do-render");
+      expect(result.response.markdown).toBe("Still sparse");
+      // Exactly 2 calls — does NOT climb to render+super on the thin render result.
+      expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not re-escalate a thin render result under forceRender", async () => {
+      // forceRender starts at render+super (no basic/render rung ahead), so a thin
+      // result there must NOT trigger escalation — it returns as-is.
+      mockScrapeUrlWithScrapeDo.mockResolvedValueOnce({
+        success: true, html: "<html><body>sparse</body></html>", requestCost: 25,
+      });
+
+      const result = await scrapeWithEscalation(
+        { ...baseParams, options: { formats: ["rawHtml"] }, forceRender: true },
+        "platform"
+      );
+
+      expect(result.levelName).toBe("scrape-do-render-super");
+      expect(mockScrapeUrlWithScrapeDo).toHaveBeenCalledTimes(1);
+      expect(mockScrapeUrl).not.toHaveBeenCalled();
     });
   });
 

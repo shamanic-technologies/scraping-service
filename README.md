@@ -54,7 +54,7 @@ Optional tracking headers (injected automatically by workflow-service):
 
 `enrich` is optional. Omitted ⇒ `true` (current behavior: company-info enrichment runs). Set `false` for **raw-fetch mode** — returns the raw page body cheaply, skips company-info enrichment, and bypasses the shared company-info cache/result store (the row is not persisted). scrape.do cost is still declared on the forwarded run in both modes.
 
-`render` is optional. Set `true` to force scrape.do JS rendering (`render=true&super=true`) — use for client-rendered pages whose content is not in the initial HTML. The default ladder (basic → render → render+super → firecrawl) already escalates automatically on failure.
+`render` is optional. Set `true` to force scrape.do JS rendering (`render=true&super=true`) — use for client-rendered pages whose content is not in the initial HTML. The default ladder (basic → render → render+super → firecrawl) escalates automatically both on failure **and on thin content**: when a non-render rung returns HTTP 200 but near-empty visible text (< 200 chars — a client-rendered SPA shell), the chain escalates to JS render instead of returning the shell. A thin result already cached from before this behavior is treated as a cache miss and re-scraped.
 
 `result.rawHtml` is populated (raw page HTML) only when `options.formats` includes `"rawHtml"`; otherwise `null`. It is request-scoped — never cached. Use it to extract `mailto:` links and decode Cloudflare `data-cfemail` obfuscation, which markdown conversion strips.
 
