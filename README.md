@@ -78,7 +78,7 @@ Returns `{ cached: boolean, provider: string, requestId: string, runId: string, 
 }
 ```
 
-Returns `{ success: boolean, urls: string[], count: number, runId: string }`. Returns `402` when insufficient credits (platform key only). Identity (`orgId`, `userId`) is provided via required `X-Org-Id` and `X-User-Id` headers.
+Returns `{ success: boolean, urls: string[], count: number, source: "map" | "homepage-links", runId: string }`. A map is bounded at ~18 s: when Firecrawl has not indexed a big site yet (marketplaces, classifieds) it stops at the ceiling with no URLs and no charge, and the route answers with the links found on the homepage instead (`source: "homepage-links"`, one Firecrawl scrape credit declared instead of the map credit). Returns `402` when insufficient credits (platform key only). Identity (`orgId`, `userId`) is provided via required `X-Org-Id` and `X-User-Id` headers.
 
 ### POST /extract
 

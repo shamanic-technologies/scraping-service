@@ -11,9 +11,16 @@ vi.mock("../../src/lib/key-client.js", () => ({
   },
 }));
 
+vi.mock("../../src/lib/runs-client.js", () => ({
+  createRun: vi.fn().mockResolvedValue({ id: "map-run-id" }),
+  updateRunStatus: vi.fn().mockResolvedValue(undefined),
+  addCosts: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock the firecrawl module before importing app
 vi.mock("../../src/lib/firecrawl.js", () => ({
   mapUrl: vi.fn(),
+  homepageLinks: vi.fn(),
   scrapeUrl: vi.fn(),
   normalizeUrl: vi.fn((url: string) => url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "")),
 }));
@@ -21,7 +28,8 @@ vi.mock("../../src/lib/firecrawl.js", () => ({
 import request from "supertest";
 import express from "express";
 import mapRoutes from "../../src/routes/map.js";
-import { mapUrl } from "../../src/lib/firecrawl.js";
+import { mapUrl, homepageLinks } from "../../src/lib/firecrawl.js";
+import { addCosts } from "../../src/lib/runs-client.js";
 import { resolveKey, KeyServiceError } from "../../src/lib/key-client.js";
 
 describe("/map endpoint", () => {
@@ -132,6 +140,62 @@ describe("/map endpoint", () => {
         "test-key",
         expect.objectContaining({ search: "pricing" })
       );
+    });
+    it("answers with source=map and declares a map credit on a normal site", async () => {
+      vi.mocked(mapUrl).mockResolvedValueOnce({ success: true, urls: ["https://example.com/about"] });
+
+      const response = await request(app).post("/map").send({ url: "https://example.com" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.source).toBe("map");
+      expect(homepageLinks).not.toHaveBeenCalled();
+      expect(addCosts).toHaveBeenCalledWith(
+        "map-run-id",
+        [{ costName: "firecrawl-map-credit", quantity: 1, costSource: "org" }],
+        expect.anything()
+      );
+    });
+
+    it("falls back to homepage links when the map hits its ceiling, declaring only the scrape", async () => {
+      vi.mocked(mapUrl).mockResolvedValueOnce({ success: false, timedOut: true, error: "Map timed out" });
+      vi.mocked(homepageLinks).mockResolvedValueOnce({
+        success: true,
+        urls: ["https://dubizzle.com/", "https://www.dubizzle.com/about/"],
+      });
+
+      const response = await request(app)
+        .post("/map")
+        .send({ url: "https://dubizzle.com", limit: 100, includeSubdomains: true });
+
+      expect(response.status).toBe(200);
+      expect(response.body.source).toBe("homepage-links");
+      expect(response.body.urls).toEqual(["https://dubizzle.com/", "https://www.dubizzle.com/about/"]);
+      expect(homepageLinks).toHaveBeenCalledWith("https://dubizzle.com", "test-key", { includeSubdomains: true, limit: 100 });
+      expect(addCosts).toHaveBeenCalledWith(
+        "map-run-id",
+        [{ costName: "firecrawl-scrape-credit", quantity: 1, costSource: "org" }],
+        expect.anything()
+      );
+    });
+
+    it("returns 500 and declares nothing when both the map and the fallback fail", async () => {
+      vi.mocked(mapUrl).mockResolvedValueOnce({ success: false, timedOut: true, error: "Map timed out" });
+      vi.mocked(homepageLinks).mockResolvedValueOnce({ success: false, error: "boom" });
+
+      const response = await request(app).post("/map").send({ url: "https://example.com" });
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe("boom");
+      expect(addCosts).not.toHaveBeenCalled();
+    });
+
+    it("does not fall back on a non-timeout failure", async () => {
+      vi.mocked(mapUrl).mockResolvedValueOnce({ success: false, error: "Rate limited" });
+
+      const response = await request(app).post("/map").send({ url: "https://example.com" });
+
+      expect(response.status).toBe(500);
+      expect(homepageLinks).not.toHaveBeenCalled();
     });
   });
 });

@@ -216,6 +216,11 @@ const MapSuccessResponseSchema = z
     success: z.literal(true),
     urls: z.array(z.string()),
     count: z.number(),
+    source: z
+      .enum(["map", "homepage-links"])
+      .describe(
+        "map = Firecrawl site map. homepage-links = the map hit its ~18 s ceiling (big site not yet indexed by Firecrawl), so urls are the links found on the homepage instead."
+      ),
     runId: z.string().optional(),
   })
   .openapi("MapSuccessResponse");
