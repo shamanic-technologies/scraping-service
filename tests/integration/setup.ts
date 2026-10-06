@@ -4,7 +4,7 @@ import { beforeAll, afterAll } from "vitest";
 if (!process.env.SCRAPING_SERVICE_DATABASE_URL) {
   throw new Error(
     "SCRAPING_SERVICE_DATABASE_URL must be set for integration tests. " +
-      "These tests run against a real Neon database branch."
+      "These tests run against a real Postgres database (a throwaway service container in CI)."
   );
 }
 
