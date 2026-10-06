@@ -346,7 +346,12 @@ function siteHost(host: string): string {
 
 /**
  * Keep the links that belong to the mapped site (same host, or a subdomain of it
- * when includeSubdomains), drop fragments, dedupe, root first, cap at limit.
+ * when includeSubdomains), drop fragments, dedupe, then cap at limit SHALLOW
+ * FIRST: main host before subdomains, fewer path segments first (a query string
+ * counts as one more), homepage order otherwise. A marketplace homepage carries
+ * hundreds of listing links and its company pages (/about, /contact, /business)
+ * sit near the end of the page, so a cap in page order cut them (dubizzle.com:
+ * 225 links, /about at position ~150).
  */
 export function filterSiteLinks(
   rootUrl: string,
@@ -356,7 +361,7 @@ export function filterSiteLinks(
   const root = new URL(rootUrl);
   const base = siteHost(root.hostname);
   const seen = new Set<string>();
-  const out: string[] = [];
+  const kept: { href: string; subdomain: boolean; depth: number; index: number }[] = [];
 
   for (const raw of [root.href, ...links]) {
     let u: URL;
@@ -367,17 +372,22 @@ export function filterSiteLinks(
     }
     if (u.protocol !== "http:" && u.protocol !== "https:") continue;
     const host = siteHost(u.hostname);
-    const sameSite = host === base || (options.includeSubdomains === true && host.endsWith(`.${base}`));
-    if (!sameSite) continue;
+    const subdomain = host !== base;
+    if (subdomain && !(options.includeSubdomains === true && host.endsWith(`.${base}`))) continue;
     u.hash = "";
-    const key = u.href;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(key);
-    if (options.limit !== undefined && out.length >= options.limit) break;
+    const href = u.href;
+    if (seen.has(href)) continue;
+    seen.add(href);
+    const depth = u.pathname.split("/").filter(Boolean).length + (u.search ? 1 : 0);
+    kept.push({ href, subdomain, depth, index: kept.length });
   }
 
-  return out;
+  kept.sort(
+    (a, b) =>
+      Number(a.subdomain) - Number(b.subdomain) || a.depth - b.depth || a.index - b.index
+  );
+  const ordered = kept.map((k) => k.href);
+  return options.limit === undefined ? ordered : ordered.slice(0, options.limit);
 }
 
 /**

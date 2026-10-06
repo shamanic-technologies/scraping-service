@@ -98,10 +98,35 @@ describe("filterSiteLinks", () => {
   it("drops subdomains unless includeSubdomains, strips fragments, dedupes, caps", () => {
     const links = ["https://a.com/x#top", "https://a.com/x", "https://blog.a.com/p", "mailto:hi@a.com", "/rel"];
     expect(filterSiteLinks("https://a.com", links)).toEqual(["https://a.com/", "https://a.com/x", "https://a.com/rel"]);
-    expect(filterSiteLinks("https://a.com", links, { includeSubdomains: true, limit: 3 })).toEqual([
+    expect(filterSiteLinks("https://a.com", links, { includeSubdomains: true, limit: 4 })).toEqual([
       "https://a.com/",
       "https://a.com/x",
+      "https://a.com/rel",
       "https://blog.a.com/p",
+    ]);
+  });
+
+  it("keeps company pages buried under hundreds of listing links when capping (dubizzle.com)", () => {
+    const listings = Array.from({ length: 150 }, (_, i) => `https://dubai.dubizzle.com/motors/used-cars/car-${i}/2026/09/28/listing-${i}/`);
+    const deepMain = Array.from({ length: 80 }, (_, i) => `https://www.dubizzle.com/property-for-rent/residential/${i}/`);
+    const links = [...listings, ...deepMain, "https://www.dubizzle.com/about/", "https://www.dubizzle.com/contact/"];
+    const out = filterSiteLinks("https://dubizzle.com", links, { includeSubdomains: true, limit: 100 });
+    expect(out).toHaveLength(100);
+    expect(out.slice(0, 3)).toEqual([
+      "https://dubizzle.com/",
+      "https://www.dubizzle.com/about/",
+      "https://www.dubizzle.com/contact/",
+    ]);
+  });
+
+  it("puts the main host before subdomains and fewer path segments first", () => {
+    const links = ["https://blog.a.com/x", "https://a.com/a/b/c", "https://a.com/search?q=1", "https://a.com/pricing"];
+    expect(filterSiteLinks("https://a.com", links, { includeSubdomains: true })).toEqual([
+      "https://a.com/",
+      "https://a.com/pricing",
+      "https://a.com/search?q=1",
+      "https://a.com/a/b/c",
+      "https://blog.a.com/x",
     ]);
   });
 
