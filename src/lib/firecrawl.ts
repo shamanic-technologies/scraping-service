@@ -260,43 +260,165 @@ export interface MapResponse {
   success: boolean;
   urls?: string[];
   error?: string;
+  /** True when Firecrawl stopped the map at our ceiling (HTTP 408 MAP_TIMEOUT). Firecrawl bills nothing for it. */
+  timedOut?: boolean;
 }
 
 /**
- * Map a website to discover all URLs using Firecrawl
+ * Server-side ceiling handed to Firecrawl's /v1/map. Measured 2026-10-06: maps
+ * of big sites that Firecrawl has not indexed yet run 35-100 s (dubizzle.com 98 s,
+ * kijiji.ca 44 s, gumtree.com 36 s) while 148 of 160 prod maps over 30 days took
+ * under 10 s. Past the ceiling Firecrawl answers 408 MAP_TIMEOUT with NO partial
+ * URLs (and no credit charged), so the route falls back to the homepage's links.
+ */
+export const MAP_CEILING_MS = 18000;
+/** Client-side abort, a little past the ceiling, in case Firecrawl never answers. */
+const MAP_ABORT_MS = MAP_CEILING_MS + 5000;
+/** Ceiling for the homepage-links fallback scrape (measured 0.6-1.5 s on big sites). */
+export const HOMEPAGE_LINKS_TIMEOUT_MS = 8000;
+
+/**
+ * Map a website to discover URLs using Firecrawl, bounded by MAP_CEILING_MS.
+ *
+ * Raw HTTP instead of the SDK: the SDK rewraps every non-200 as a status-500
+ * FirecrawlError, so a 408 MAP_TIMEOUT could not be told apart from a real failure.
  */
 export async function mapUrl(
   url: string,
   apiKey: string,
   options: MapOptions = {}
 ): Promise<MapResponse> {
-  const firecrawl = new FirecrawlApp({ apiKey });
-
   try {
-    const result = await firecrawl.mapUrl(url, {
-      search: options.search,
-      ignoreSitemap: options.ignoreSitemap,
-      sitemapOnly: options.sitemapOnly,
-      includeSubdomains: options.includeSubdomains ?? false,
-      limit: options.limit,
+    const res = await fetch(`${FIRECRAWL_API_URL}/v1/map`, {
+      method: "POST",
+      signal: AbortSignal.timeout(MAP_ABORT_MS),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        url,
+        search: options.search,
+        ignoreSitemap: options.ignoreSitemap,
+        sitemapOnly: options.sitemapOnly,
+        includeSubdomains: options.includeSubdomains ?? false,
+        limit: options.limit,
+        timeout: MAP_CEILING_MS,
+      }),
     });
 
-    if (!result.success) {
+    const body = (await res.json().catch(() => null)) as
+      | { success?: boolean; links?: string[]; code?: string; error?: string }
+      | null;
+
+    if (res.status === 408 || body?.code === "MAP_TIMEOUT") {
+      console.warn(`[scraping-service] Firecrawl map hit the ${MAP_CEILING_MS}ms ceiling for ${url}`);
+      return { success: false, timedOut: true, error: body?.error || "Map timed out" };
+    }
+
+    if (!res.ok || !body?.success) {
       return {
         success: false,
-        error: (result as any).error || "Map failed",
+        error: body?.error || `Firecrawl map failed (${res.status})`,
       };
     }
 
     return {
       success: true,
-      urls: result.links || [],
+      urls: body.links || [],
     };
   } catch (error: any) {
+    if (error?.name === "TimeoutError") {
+      console.warn(`[scraping-service] Firecrawl map gave no answer within ${MAP_ABORT_MS}ms for ${url}`);
+      return { success: false, timedOut: true, error: `Map timed out after ${MAP_ABORT_MS}ms` };
+    }
     console.error("Firecrawl map error:", error);
     return {
       success: false,
       error: error.message || "Firecrawl map request failed",
+    };
+  }
+}
+
+function siteHost(host: string): string {
+  return host.toLowerCase().replace(/^www\./, "");
+}
+
+/**
+ * Keep the links that belong to the mapped site (same host, or a subdomain of it
+ * when includeSubdomains), drop fragments, dedupe, root first, cap at limit.
+ */
+export function filterSiteLinks(
+  rootUrl: string,
+  links: string[],
+  options: { includeSubdomains?: boolean; limit?: number } = {}
+): string[] {
+  const root = new URL(rootUrl);
+  const base = siteHost(root.hostname);
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const raw of [root.href, ...links]) {
+    let u: URL;
+    try {
+      u = new URL(raw, root);
+    } catch {
+      continue;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") continue;
+    const host = siteHost(u.hostname);
+    const sameSite = host === base || (options.includeSubdomains === true && host.endsWith(`.${base}`));
+    if (!sameSite) continue;
+    u.hash = "";
+    const key = u.href;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+    if (options.limit !== undefined && out.length >= options.limit) break;
+  }
+
+  return out;
+}
+
+/**
+ * Fallback when the map hits its ceiling: one Firecrawl scrape of the homepage
+ * in `links` format. A homepage links to the company pages a caller wants
+ * (about, pricing, contact, business, careers) and answers in ~1 s even on the
+ * biggest marketplaces. Costs one Firecrawl scrape credit.
+ */
+export async function homepageLinks(
+  url: string,
+  apiKey: string,
+  options: { includeSubdomains?: boolean; limit?: number } = {}
+): Promise<MapResponse> {
+  try {
+    const res = await fetch(`${FIRECRAWL_API_URL}/v1/scrape`, {
+      method: "POST",
+      signal: AbortSignal.timeout(HOMEPAGE_LINKS_TIMEOUT_MS + 5000),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ url, formats: ["links"], timeout: HOMEPAGE_LINKS_TIMEOUT_MS }),
+    });
+
+    const body = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { links?: string[] }; error?: string }
+      | null;
+
+    if (!res.ok || !body?.success) {
+      return {
+        success: false,
+        error: body?.error || `Firecrawl homepage links scrape failed (${res.status})`,
+      };
+    }
+
+    return { success: true, urls: filterSiteLinks(url, body.data?.links || [], options) };
+  } catch (error: any) {
+    console.error("Firecrawl homepage links error:", error);
+    return {
+      success: false,
+      error: error.message || "Firecrawl homepage links request failed",
     };
   }
 }

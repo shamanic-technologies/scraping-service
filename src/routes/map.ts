@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { mapUrl, MapOptions } from "../lib/firecrawl.js";
+import { mapUrl, homepageLinks, MapOptions, MapResponse } from "../lib/firecrawl.js";
 import { resolveKey, KeyServiceError } from "../lib/key-client.js";
 import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
@@ -10,7 +10,9 @@ const router = Router();
 
 /**
  * POST /map
- * Discover all URLs on a website using Firecrawl's map endpoint
+ * Discover URLs on a website using Firecrawl's map endpoint, bounded in time.
+ * When the map hits its ceiling (big sites Firecrawl has not indexed yet), the
+ * route answers with the homepage's own links instead (source: "homepage-links").
  */
 router.post("/map", async (req: AuthenticatedRequest, res) => {
   let runId: string | undefined;
@@ -120,11 +122,53 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       includeSubdomains,
     };
 
-    const result = await mapUrl(url, firecrawlApiKey, options);
+    const runIdentity = { orgId, userId, runId: runId ?? parentRunId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
+
+    let result: MapResponse = await mapUrl(url, firecrawlApiKey, options);
+    let source: "map" | "homepage-links" = "map";
+    // What Firecrawl actually charged: a map stopped at the ceiling costs nothing
+    // (measured 2026-10-06), the fallback homepage scrape costs one scrape credit.
+    let costName: "firecrawl-map-credit" | "firecrawl-scrape-credit" = "firecrawl-map-credit";
+
+    if (!result.success && result.timedOut) {
+      if (keySource === "platform") {
+        try {
+          const auth = await authorizeCredits(
+            [{ costName: "firecrawl-scrape-credit", quantity: 1 }],
+            "firecrawl-scrape-credit",
+            { ...runIdentity, runId: parentRunId }
+          );
+          if (!auth.sufficient) {
+            if (runId) {
+              updateRunStatus(runId, "failed", runIdentity).catch((err) =>
+                console.error("Failed to update run status:", err)
+              );
+            }
+            return res.status(402).json({
+              error: "Insufficient credits",
+              balance_cents: auth.balance_cents,
+              required_cents: auth.required_cents,
+            });
+          }
+        } catch (err) {
+          console.error("Billing authorization failed:", err);
+          if (runId) {
+            updateRunStatus(runId, "failed", runIdentity).catch((e) =>
+              console.error("Failed to update run status:", e)
+            );
+          }
+          return res.status(502).json({ error: "Billing authorization unavailable" });
+        }
+      }
+
+      result = await homepageLinks(url, firecrawlApiKey, { includeSubdomains, limit });
+      source = "homepage-links";
+      costName = "firecrawl-scrape-credit";
+    }
 
     if (!result.success) {
       if (runId) {
-        updateRunStatus(runId, "failed", { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId}).catch((err) =>
+        updateRunStatus(runId, "failed", runIdentity).catch((err) =>
           console.error("Failed to update run status:", err)
         );
       }
@@ -138,9 +182,8 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
 
     // Report costs and complete run (fire-and-forget)
     if (runId) {
-      const runIdentity = { orgId, userId, runId, campaignId: effectiveCampaignId, brandIds: effectiveBrandIds, workflowSlug: effectiveWorkflowSlug, featureSlug: effectiveFeatureSlug, audienceId: effectiveAudienceId};
       Promise.all([
-        addCosts(runId, [{ costName: "firecrawl-map-credit", quantity: 1, costSource: keySource }], runIdentity),
+        addCosts(runId, [{ costName, quantity: 1, costSource: keySource }], runIdentity),
         updateRunStatus(runId, "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
@@ -149,6 +192,7 @@ router.post("/map", async (req: AuthenticatedRequest, res) => {
       success: true,
       urls: result.urls,
       count: result.urls?.length || 0,
+      source,
       runId,
     });
   } catch (error: any) {
