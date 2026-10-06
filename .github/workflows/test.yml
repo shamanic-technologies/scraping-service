@@ -40,6 +40,27 @@ jobs:
   test-integration:
     runs-on: ubuntu-latest
 
+    # Throwaway Postgres per run. The Neon project the PR branches were cut from
+    # (vars.NEON_PROJECT_ID) was deleted, so every PR failed this required check
+    # at "Create Neon branch" with a 404 before a single test ran.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SCRAPING_SERVICE_DATABASE_URL: postgresql://test:test@localhost:5432/test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -51,34 +72,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Create Neon branch only for PRs
-      - name: Create Neon branch for PR
-        if: github.event_name == 'pull_request'
-        id: neon
-        uses: neondatabase/create-branch-action@v6
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: pr-${{ github.event.number }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-
-      # Use Neon branch URL for PRs, dev secret for main
-      - name: Set database URL
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "DB_URL=${{ steps.neon.outputs.db_url_pooled }}" >> "$GITHUB_ENV"
-          else
-            echo "DB_URL=${{ secrets.SCRAPING_SERVICE_DATABASE_URL_DEV }}" >> "$GITHUB_ENV"
-          fi
-
-      - name: Push schema to branch
+      - name: Push schema
         run: npx drizzle-kit push --force
-        env:
-          SCRAPING_SERVICE_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Run integration tests
         run: npm run test:integration
         env:
-          SCRAPING_SERVICE_DATABASE_URL: ${{ env.DB_URL }}
           SCRAPING_SERVICE_API_KEY: test-api-key
           KEY_SERVICE_URL: https://key.test.org
           KEY_SERVICE_API_KEY: test-key-service-key

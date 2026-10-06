@@ -194,14 +194,4 @@ Multi-stage build: Node 20 Alpine, production dependencies, Drizzle migration fi
 GitHub Actions runs on push to `main` and PRs:
 
 - **test-unit** — installs deps, runs unit tests, builds TypeScript
-- **test-integration** — creates a Neon DB branch per PR (via `neondatabase/create-branch-action`), pushes schema with `drizzle-kit push`, runs integration tests against the isolated branch. On `main`, uses the `SCRAPING_SERVICE_DATABASE_URL_DEV` secret instead.
-
-A separate `neon-cleanup.yml` workflow deletes the Neon branch when the PR is closed.
-
-### Required GitHub Secrets & Variables
-
-| Name | Type | Description |
-|------|------|-------------|
-| `NEON_API_KEY` | Secret | Neon API key (Account Settings > API Keys) |
-| `NEON_PROJECT_ID` | Variable | Neon project ID |
-| `SCRAPING_SERVICE_DATABASE_URL_DEV` | Secret | Dev database URL for post-merge integration tests on `main` |
+- **test-integration** — starts a throwaway `postgres:16` service container, pushes schema with `drizzle-kit push`, runs integration tests against it. Same on PRs and on `main`; no external database or secret needed.
