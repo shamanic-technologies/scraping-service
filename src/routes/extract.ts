@@ -8,6 +8,7 @@ import { createRun, updateRunStatus, addCosts } from "../lib/runs-client.js";
 import { authorizeCredits } from "../lib/billing-client.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ExtractRequestSchema } from "../schemas.js";
+import { errorMessage } from "../lib/db-error.js";
 
 const router = Router();
 
@@ -314,7 +315,7 @@ router.post("/extract", async (req: AuthenticatedRequest, res) => {
       );
     }
 
-    res.status(500).json({ error: error.message || "Internal server error" });
+    res.status(500).json({ error: errorMessage(error, "Internal server error") });
   }
 });
 
