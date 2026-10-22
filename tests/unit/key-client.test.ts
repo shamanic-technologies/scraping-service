@@ -15,6 +15,8 @@ describe("key-client", () => {
   });
 
   afterEach(() => {
+    // vitest 3+: restoreAllMocks no longer resets vi.fn() call history
+    fetchSpy.mockReset();
     vi.restoreAllMocks();
   });
 
