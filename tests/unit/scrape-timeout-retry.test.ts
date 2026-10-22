@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock the Firecrawl SDK
 const mockScrapeUrl = vi.fn();
 vi.mock("@mendable/firecrawl-js", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    scrapeUrl: mockScrapeUrl,
-  })),
+  // vitest 4: a mock invoked with `new` needs a function/class implementation
+  default: vi.fn().mockImplementation(function () {
+    return { scrapeUrl: mockScrapeUrl };
+  }),
 }));
 
 import { scrapeUrl } from "../../src/lib/firecrawl.js";
