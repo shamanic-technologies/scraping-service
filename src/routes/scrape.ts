@@ -11,6 +11,7 @@ import { AuthenticatedRequest } from "../middleware/auth.js";
 import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
 import { sanitizeForPostgres, MAX_MARKDOWN_LENGTH, MAX_HTML_LENGTH } from "../lib/sanitize.js";
 import { isThinContent } from "../lib/thin-content.js";
+import { errorMessage } from "../lib/db-error.js";
 
 const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
 
@@ -427,7 +428,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           .update(scrapeRequests)
           .set({
             status: "failed",
-            errorMessage: error.message || "Internal server error",
+            errorMessage: errorMessage(error, "Internal server error"),
             completedAt: new Date(),
           })
           .where(
@@ -441,7 +442,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       console.error("[scraping-service] Failed to update request status:", updateErr);
     }
 
-    res.status(500).json({ error: error.message || "Internal server error" });
+    res.status(500).json({ error: errorMessage(error, "Internal server error") });
   }
 });
 
@@ -486,7 +487,7 @@ router.get("/scrape/by-url", async (req, res) => {
     });
   } catch (error: any) {
     console.error("Get by URL error:", error);
-    res.status(500).json({ error: error.message || "Internal server error" });
+    res.status(500).json({ error: errorMessage(error, "Internal server error") });
   }
 });
 
@@ -509,7 +510,7 @@ router.get("/scrape/:id", async (req, res) => {
     res.json({ result: formatResult(result) });
   } catch (error: any) {
     console.error("Get result error:", error);
-    res.status(500).json({ error: error.message || "Internal server error" });
+    res.status(500).json({ error: errorMessage(error, "Internal server error") });
   }
 });
 
