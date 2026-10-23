@@ -12,6 +12,7 @@ import { ScrapeRequestSchema, ScrapingProvider } from "../schemas.js";
 import { sanitizeForPostgres, MAX_MARKDOWN_LENGTH, MAX_HTML_LENGTH } from "../lib/sanitize.js";
 import { isThinContent } from "../lib/thin-content.js";
 import { errorMessage } from "../lib/db-error.js";
+import { declareScrapeOutcome } from "../lib/outcome-declaration.js";
 
 const DEFAULT_PROVIDER: ScrapingProvider = "scrape-do";
 
@@ -61,6 +62,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       workflowSlug,
       featureSlug,
       audienceId,
+      outcomeKey,
     } = parsed.data;
 
     const provider: ScrapingProvider = requestedProvider ?? DEFAULT_PROVIDER;
@@ -295,6 +297,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           updateRunStatus(runId, "completed", runIdentity),
         ]).catch((err) => console.error("[scraping-service] Failed to finalize run:", err));
       }
+      declareScrapeOutcome(outcomeKey, url, runId, { orgId, userId });
 
       return res.json({
         cached: false,
@@ -399,6 +402,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         updateRunStatus(runId, "completed", runIdentity),
       ]).catch((err) => console.error("Failed to finalize run:", err));
     }
+    declareScrapeOutcome(outcomeKey, url, runId, { orgId, userId });
 
     res.json({
       cached: false,

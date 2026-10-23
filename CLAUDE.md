@@ -26,6 +26,10 @@ URL scraping microservice with multi-provider support (Scrape.do default, Firecr
 - `tests/` — Test files (`*.test.ts`)
 - `openapi.json` — Auto-generated, do NOT edit manually
 
+### Cost accounting (COST-ACCOUNTING-1023)
+
+A scrape run declares an outcome only when the CALLER states it (`outcomeKey`): a URL does not say whether we read a prospect's company (`company_researched`) or a client's own site (brand setup, a support function, declares nothing and rolls into the caller's run). Subject of `company_researched` = `lead-service` + the url's normalized domain (lead-service `normalizeDomain`, keep the two byte-equal). Declaration is background + retried, never blocks the scrape. `src/lib/outcome-declaration.ts`.
+
 ### Migrations gotcha (READ before any schema change)
 
 The `drizzle/` folder is **empty** and the prod schema was applied via manual `db:push`, NOT migration files. `src/index.ts` calls `migrate(db, { migrationsFolder: "./drizzle" })` on boot, but with an empty folder that is a **no-op**. So the generic "every service auto-runs migrations at boot" assumption does NOT hold here — a new column will **silently never be created in prod** if you just edit `src/db/schema.ts` and ship.

@@ -295,6 +295,13 @@
           "options": {
             "$ref": "#/components/schemas/ScrapeOptions"
           },
+          "outcomeKey": {
+            "type": "string",
+            "enum": [
+              "company_researched"
+            ],
+            "description": "The outcome this scrape produces, stated by the caller. \"company_researched\" = reading a prospect's company website: on a fresh scrape the scrape run declares it to runs-service, subject = lead-service's company key (`{subjectService: \"lead-service\", subjectId: <normalized domain of url>}`), so every message using that research consumes it. Omitted = nothing declared: the scrape cost rolls into the caller's nearest declaring run (e.g. brand setup). A cache hit spends nothing and declares nothing. Declaration never fails or slows the scrape."
+          },
           "brandIds": {
             "type": "array",
             "items": {
