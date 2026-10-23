@@ -28,7 +28,7 @@ URL scraping microservice with multi-provider support (Scrape.do default, Firecr
 
 ### Cost accounting (COST-ACCOUNTING-1023)
 
-A scrape run declares an outcome only when the CALLER states it (`outcomeKey`): a URL does not say whether we read a prospect's company (`company_researched`) or a client's own site (brand setup, a support function, declares nothing and rolls into the caller's run). Subject of `company_researched` = `lead-service` + the url's normalized domain (lead-service `normalizeDomain`, keep the two byte-equal). Declaration is background + retried, never blocks the scrape. `src/lib/outcome-declaration.ts`.
+A scrape run declares an outcome only when the CALLER states it (`outcomeKey`): a URL does not say whether we read a prospect's company (`company_researched`) or a client's own site (brand setup, a support function, declares nothing and rolls into the caller's run). Subject of `company_researched` = `lead-service` + the url's normalized domain (lead-service `normalizeDomain`, keep the two byte-equal). Declaration is background + retried, never blocks the scrape. `src/lib/outcome-declaration.ts`. Past runs: `src/lib/outcome-backfill.ts` (+ `src/scripts/backfill-outcomes.ts`), keyed on `scrape_requests` (sales workflow scrapes only; brand setup and retired PR products stay "produced none").
 
 ### Migrations gotcha (READ before any schema change)
 
