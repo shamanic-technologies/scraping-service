@@ -42,6 +42,7 @@ Optional tracking headers (injected automatically by workflow-service):
   "enrich": false,
   "render": true,
   "options": { "formats": ["rawHtml"] },
+  "outcomeKey": "company_researched",
   "brandIds": ["brand_1"],
   "campaignId": "campaign_2",
   "workflowSlug": "gtm-outbound",
@@ -57,6 +58,8 @@ Optional tracking headers (injected automatically by workflow-service):
 `render` is optional. Set `true` to force scrape.do JS rendering (`render=true&super=true`) — use for client-rendered pages whose content is not in the initial HTML. The default ladder (basic → render → render+super → firecrawl) escalates automatically both on failure **and on thin content**: when a non-render rung returns HTTP 200 but near-empty visible text (< 200 chars — a client-rendered SPA shell), the chain escalates to JS render instead of returning the shell. A thin result already cached from before this behavior is treated as a cache miss and re-scraped.
 
 `result.rawHtml` is populated (raw page HTML) only when `options.formats` includes `"rawHtml"`; otherwise `null`. It is request-scoped — never cached. Use it to extract `mailto:` links and decode Cloudflare `data-cfemail` obfuscation, which markdown conversion strips.
+
+`outcomeKey` is optional (cost accounting, COST-ACCOUNTING-1023): the outcome this scrape is FOR, stated by the caller. Only `"company_researched"` (reading a prospect's company website). On a fresh successful scrape the scrape run declares it to runs-service (`POST /v1/runs/{runId}/outcomes`), subject = lead-service's company key `{subjectService: "lead-service", subjectId: <url domain, lowercased, no scheme/www/path/port>}` (same normalization as lead-service `normalizeDomain`), so every message using that research consumes it. Omitted = nothing declared: the scrape cost rolls into the caller's nearest declaring run (brand setup, previews). A cache hit or a failed scrape declares nothing. The declaration runs in the background (retried on network/5xx, logged `OUTCOME DECLARATION LOST` when it gives up) and never fails or slows the scrape. `/map` and `/extract` declare nothing (support functions: brand setup, article metadata). Code: `src/lib/outcome-declaration.ts`.
 
 Returns `{ cached: boolean, provider: string, requestId: string, runId: string, result: {...} }`. Returns `402` with `{ error, balance_cents, required_cents }` when the org has insufficient credits (platform key only; BYOK skips billing check).
 

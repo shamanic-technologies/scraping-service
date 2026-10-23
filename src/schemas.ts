@@ -3,6 +3,7 @@ import {
   OpenAPIRegistry,
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
+import { DECLARABLE_OUTCOME_KEYS } from "./lib/outcome-declaration.js";
 
 extendZodWithOpenApi(z);
 
@@ -67,6 +68,14 @@ export const ScrapeRequestSchema = z
           "Force scrape.do JS rendering (render=true&super=true). Use for client-rendered pages whose content is not in the initial HTML.",
       }),
     options: ScrapeOptionsSchema.optional(),
+    // Cost accounting (COST-ACCOUNTING-1023): the outcome this scrape is FOR.
+    outcomeKey: z
+      .enum(DECLARABLE_OUTCOME_KEYS)
+      .optional()
+      .openapi({
+        description:
+          'The outcome this scrape produces, stated by the caller. "company_researched" = reading a prospect\'s company website: on a fresh scrape the scrape run declares it to runs-service, subject = lead-service\'s company key (`{subjectService: "lead-service", subjectId: <normalized domain of url>}`), so every message using that research consumes it. Omitted = nothing declared: the scrape cost rolls into the caller\'s nearest declaring run (e.g. brand setup). A cache hit spends nothing and declares nothing. Declaration never fails or slows the scrape.',
+      }),
     // RunsService passthrough fields
     brandIds: z.array(z.string()).optional(),
     campaignId: z.string().optional(),
