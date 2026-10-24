@@ -5,7 +5,8 @@
  * scraping-service, our own runs only, all or nothing, idempotent: an already
  * marked run keeps its first function).
  *
- * Only for a function our records PROVE (a staff probe of our own site, a run of a
+ * The list of functions is runs-service's (it adds one, e.g. `unattributed_production`,
+ * without a change here). Only for a function our records PROVE (a staff probe of our own site, a run of a
  * retired product). A run that tried to produce an outcome and kept nothing is loss
  * of its pipe, never support: leave it unmarked.
  */
@@ -13,16 +14,8 @@ const RUNS_SERVICE_URL = process.env.RUNS_SERVICE_URL || "https://runs.mcpfactor
 const FETCH_TIMEOUT_MS = 120_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const SUPPORT_FUNCTIONS = [
-  "payment_fees",
-  "brand_setup",
-  "copilot",
-  "platform_llm",
-  "staff_experiment",
-  "product_feature",
-  "retired_product",
-] as const;
-export type SupportFunction = (typeof SUPPORT_FUNCTIONS)[number];
+/** The function's name, as runs-service's support-mark door lists it (it refuses an unknown one: 400). */
+export type SupportFunction = string;
 
 export interface SupportMarkRequest {
   kind: SupportFunction;
@@ -40,9 +33,7 @@ export class SupportMarkError extends Error {
 
 /** Validates the CLI input before anything reaches runs-service. */
 export function supportMarkRequest(kind: string, reason: string, markedBy: string, runIds: string[]): SupportMarkRequest {
-  if (!(SUPPORT_FUNCTIONS as readonly string[]).includes(kind)) {
-    throw new SupportMarkError(`unknown support function "${kind}" (one of ${SUPPORT_FUNCTIONS.join(", ")})`, null);
-  }
+  if (!/^[a-z_]+$/.test(kind)) throw new SupportMarkError(`not a support function name: "${kind}"`, null);
   if (!reason.trim()) throw new SupportMarkError("a reason is required", null);
   if (!markedBy.trim()) throw new SupportMarkError("markedBy is required", null);
   const ids = [...new Set(runIds.map((id) => id.trim().toLowerCase()).filter(Boolean))];
@@ -50,7 +41,7 @@ export function supportMarkRequest(kind: string, reason: string, markedBy: strin
   if (ids.length > 5000) throw new SupportMarkError(`${ids.length} runs: at most 5000 per call`, null);
   const bad = ids.filter((id) => !UUID_RE.test(id));
   if (bad.length) throw new SupportMarkError(`not run ids: ${bad.join(", ")}`, null);
-  return { kind: kind as SupportFunction, reason: reason.trim(), markedBy: markedBy.trim(), runIds: ids };
+  return { kind, reason: reason.trim(), markedBy: markedBy.trim(), runIds: ids };
 }
 
 type Post = (step: "preview" | "apply", body: SupportMarkRequest) => Promise<{ status: number; body: any }>;

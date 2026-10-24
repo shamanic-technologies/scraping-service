@@ -13,8 +13,15 @@ describe("supportMarkRequest", () => {
     });
   });
 
-  it("refuses a function outside the doctrine list", () => {
-    expect(() => supportMarkRequest("loss", "r", "b", [RUN])).toThrow(SupportMarkError);
+  it("refuses a malformed function name; runs-service validates the list itself", () => {
+    expect(() => supportMarkRequest("", "r", "b", [RUN])).toThrow(SupportMarkError);
+    expect(() => supportMarkRequest("Staff Experiment", "r", "b", [RUN])).toThrow(SupportMarkError);
+    expect(supportMarkRequest("unattributed_production", "r", "b", [RUN]).kind).toBe("unattributed_production");
+  });
+
+  it("surfaces runs-service's refusal of an unknown function", async () => {
+    const post = vi.fn().mockResolvedValue({ status: 400, body: { error: "Invalid body" } });
+    await expect(markSupport("preview", supportMarkRequest("loss", "r", "b", [RUN]), post)).rejects.toThrow(/400/);
   });
 
   it("refuses a missing reason, no runs, or a non-uuid", () => {
