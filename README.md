@@ -63,6 +63,8 @@ Optional tracking headers (injected automatically by workflow-service):
 
 **Past runs (COST-BACKFILL-1023-SCRAPING):** `node dist/scripts/backfill-outcomes.js [--apply]` (dry run by default) re-reads `scrape_requests` since 2026-02-02 and declares `company_researched` on every past completed scrape a sales cold-email workflow (`workflow-service`, `sales-cold-email-outreach-*`) asked for, through runs-service's backfill door (`POST /v1/platform-runs/outcomes/batch`, `occurredAt: "run_started_at"`). Brand setup, retired PR/journalists/outlets scrapes and failures declare nothing. Idempotent: a re-run writes nothing new. Code: `src/lib/outcome-backfill.ts`.
 
+**Support marks (LEDGER-HISTORY-1024):** `node dist/scripts/mark-support.js --kind <function> --reason "..." --by "<who>" [--apply] <runId>...` (preview by default) marks past runs of ours SUPPORT on runs-service's owner door (`POST /v1/platform-runs/support-marks/{preview,apply}`), only for a function our records prove (`staff_experiment`, `retired_product`...). A run that tried to produce an outcome and kept nothing stays unmarked (loss of its pipe). Idempotent. Code: `src/lib/support-marks.ts`.
+
 Returns `{ cached: boolean, provider: string, requestId: string, runId: string, result: {...} }`. Returns `402` with `{ error, balance_cents, required_cents }` when the org has insufficient credits (platform key only; BYOK skips billing check).
 
 ### POST /map
