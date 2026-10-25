@@ -60,6 +60,30 @@
           "error"
         ]
       },
+      "ScrapeResponse": {
+        "type": "object",
+        "properties": {
+          "cached": {
+            "type": "boolean"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ScrapingProvider"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ScrapeResult"
+          }
+        },
+        "required": [
+          "cached",
+          "result"
+        ]
+      },
       "ScrapingProvider": {
         "type": "string",
         "enum": [
@@ -141,7 +165,8 @@
                 "type": "string"
               },
               {
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               }
             ]
           }
@@ -163,30 +188,6 @@
           "rawMarkdown",
           "rawHtml",
           "createdAt"
-        ]
-      },
-      "ScrapeResponse": {
-        "type": "object",
-        "properties": {
-          "cached": {
-            "type": "boolean"
-          },
-          "provider": {
-            "$ref": "#/components/schemas/ScrapingProvider"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "runId": {
-            "type": "string"
-          },
-          "result": {
-            "$ref": "#/components/schemas/ScrapeResult"
-          }
-        },
-        "required": [
-          "cached",
-          "result"
         ]
       },
       "InsufficientCreditsResponse": {
@@ -222,47 +223,6 @@
         "required": [
           "error"
         ]
-      },
-      "ScrapeOptions": {
-        "type": "object",
-        "properties": {
-          "formats": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "markdown",
-                "html",
-                "rawHtml",
-                "links",
-                "screenshot"
-              ]
-            }
-          },
-          "onlyMainContent": {
-            "type": "boolean"
-          },
-          "includeTags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "excludeTags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "waitFor": {
-            "type": "number"
-          },
-          "timeout": {
-            "type": "integer",
-            "minimum": 1000,
-            "maximum": 300000
-          }
-        }
       },
       "ScrapeRequest": {
         "type": "object",
@@ -325,6 +285,47 @@
           "url"
         ]
       },
+      "ScrapeOptions": {
+        "type": "object",
+        "properties": {
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "markdown",
+                "html",
+                "rawHtml",
+                "links",
+                "screenshot"
+              ]
+            }
+          },
+          "onlyMainContent": {
+            "type": "boolean"
+          },
+          "includeTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludeTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "waitFor": {
+            "type": "number"
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 300000
+          }
+        }
+      },
       "ScrapeByUrlResponse": {
         "type": "object",
         "properties": {
@@ -347,19 +348,35 @@
           "result"
         ]
       },
-      "Author": {
+      "ExtractResponse": {
         "type": "object",
         "properties": {
-          "firstName": {
+          "results": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ExtractItemSuccess"
+                },
+                {
+                  "$ref": "#/components/schemas/ExtractItemError"
+                }
+              ]
+            }
+          },
+          "tokensUsed": {
+            "type": "number"
+          },
+          "runId": {
             "type": "string"
           },
-          "lastName": {
-            "type": "string"
+          "cached": {
+            "type": "boolean"
           }
         },
         "required": [
-          "firstName",
-          "lastName"
+          "results",
+          "tokensUsed"
         ]
       },
       "ExtractItemSuccess": {
@@ -395,6 +412,21 @@
           "publishedAt"
         ]
       },
+      "Author": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
       "ExtractItemError": {
         "type": "object",
         "properties": {
@@ -415,37 +447,6 @@
           "url",
           "success",
           "error"
-        ]
-      },
-      "ExtractResponse": {
-        "type": "object",
-        "properties": {
-          "results": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/ExtractItemSuccess"
-                },
-                {
-                  "$ref": "#/components/schemas/ExtractItemError"
-                }
-              ]
-            }
-          },
-          "tokensUsed": {
-            "type": "number"
-          },
-          "runId": {
-            "type": "string"
-          },
-          "cached": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "results",
-          "tokensUsed"
         ]
       },
       "ExtractRequest": {

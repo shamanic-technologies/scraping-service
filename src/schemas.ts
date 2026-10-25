@@ -4,8 +4,11 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { DECLARABLE_OUTCOME_KEYS } from "./lib/outcome-declaration.js";
+import { zodV3Message } from "./lib/zod-v3-messages.js";
 
 extendZodWithOpenApi(z);
+// Keep the zod 3 validation wording our 400 bodies have always returned.
+z.config({ customError: zodV3Message });
 
 export const registry = new OpenAPIRegistry();
 
@@ -245,10 +248,11 @@ const MapErrorResponseSchema = z
 
 export const TransferBrandRequestSchema = z
   .object({
-    sourceBrandId: z.string().uuid(),
+    // z.guid() = the zod 3 .uuid() pattern (zod 4 .uuid() rejects non-RFC ids such as 00000000-...-000000000001)
+    sourceBrandId: z.guid().openapi({ format: "uuid" }),
     sourceOrgId: z.string(),
     targetOrgId: z.string(),
-    targetBrandId: z.string().uuid().optional(),
+    targetBrandId: z.guid().openapi({ format: "uuid" }).optional(),
   })
   .openapi("TransferBrandRequest");
 
