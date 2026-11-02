@@ -12,6 +12,7 @@ import extractRoutes from "./routes/extract.js";
 import transferBrandRoutes from "./routes/transfer-brand.js";
 import { serviceAuth } from "./middleware/auth.js";
 import { db } from "./db/index.js";
+import { startScrapeResultsRetention } from "./lib/scrape-results-retention.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -67,6 +68,7 @@ if (process.env.NODE_ENV !== "test") {
       const server = app.listen(Number(PORT), "::", () => {
         console.log(`[scraping-service] Service running on port ${PORT}`);
       });
+      startScrapeResultsRetention();
       server.requestTimeout = 300_000; // 5 min safety net
       server.headersTimeout = 305_000; // must be > requestTimeout
     })

@@ -175,7 +175,7 @@ npm run dev
 Uses PostgreSQL via Drizzle ORM. Tables:
 
 - **scrape_requests** - Tracks incoming scrape requests (status, source, `provider`, `run_id` from RunsService, `campaign_id`, `brand_ids` text[] array, `workflow_slug`, `feature_slug`, `audience_id`, timestamps)
-- **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown)
+- **scrape_results** - Stores extracted company data (name, description, industry, contacts, raw markdown). One row per normalized URL (upserted). Rows expired for more than a day are deleted by an hourly in-process job (`src/lib/scrape-results-retention.ts`, first sweep ~60s after boot, chunks of 500, logs `scrape_results retention: deleted=N`); their `scrape_cache` row cascades. `GET /scrape/:id` and `GET /scrape/by-url` therefore 404 on a URL not scraped in the last ~8 days.
 - **scrape_cache** - URL-based cache lookup with TTL
 - **extract_cache** - LLM extraction cache (authors, publishedAt) with 7-day TTL
 
