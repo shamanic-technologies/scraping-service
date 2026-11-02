@@ -16,14 +16,14 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "^7.3.4",
+    "@asteasolutions/zod-to-openapi": "^8.5.0",
     "@mendable/firecrawl-js": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "drizzle-orm": "^0.45.4",
     "express": "^4.22.3",
     "postgres": "^3.4.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -39,6 +39,7 @@
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.12"
-    }
+    },
+    "zod": "$zod"
   }
 }
