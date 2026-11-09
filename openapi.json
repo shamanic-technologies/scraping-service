@@ -643,6 +643,445 @@
           "sourceOrgId",
           "targetOrgId"
         ]
+      },
+      "BacklinkCheckResponse": {
+        "type": "object",
+        "properties": {
+          "checkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new_links_kept",
+              "nothing_new"
+            ]
+          },
+          "brandId": {
+            "type": "string"
+          },
+          "brandDomain": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/BacklinkProvider"
+          },
+          "outcomeKey": {
+            "type": "string",
+            "enum": [
+              "backlink_earned"
+            ]
+          },
+          "firstCheck": {
+            "type": "boolean"
+          },
+          "windowStart": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "newLinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Backlink"
+            },
+            "description": "Links kept by THIS check (one per new referring domain, verified live)."
+          },
+          "unitsDeclared": {
+            "type": "integer",
+            "description": "backlink_earned Units declared on runId by this check (this check's links + any kept earlier whose Unit was not declared yet)."
+          },
+          "candidatesCount": {
+            "type": "integer"
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "referringDomain": {
+                  "type": "string"
+                },
+                "referringUrl": {
+                  "type": "string"
+                },
+                "verification": {
+                  "type": "string",
+                  "enum": [
+                    "not_linking",
+                    "unreachable"
+                  ]
+                }
+              },
+              "required": [
+                "referringDomain",
+                "referringUrl",
+                "verification"
+              ]
+            },
+            "description": "Candidates not kept now (retried by the brand's next check)."
+          },
+          "newReferringDomainsCount": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "The provider held more rows than one call returns (1000)."
+          },
+          "costMicroUsd": {
+            "type": "number",
+            "description": "treg spend of this check in micro-USD (treg-micro-usd), actualized on runId."
+          },
+          "providerCalls": {
+            "type": "integer"
+          },
+          "checkedAt": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean",
+            "description": "true = the stored answer of a completed check with the same idempotencyKey (nothing spent)."
+          }
+        },
+        "required": [
+          "checkId",
+          "status",
+          "brandId",
+          "brandDomain",
+          "provider",
+          "outcomeKey",
+          "firstCheck",
+          "windowStart",
+          "runId",
+          "newLinks",
+          "unitsDeclared",
+          "candidatesCount",
+          "rejected",
+          "newReferringDomainsCount",
+          "truncated",
+          "costMicroUsd",
+          "providerCalls",
+          "checkedAt",
+          "replayed"
+        ]
+      },
+      "BacklinkProvider": {
+        "type": "string",
+        "enum": [
+          "dataforseo"
+        ],
+        "description": "Backlink data provider (a tactic the caller may state; closed list). Absent = dataforseo."
+      },
+      "Backlink": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Kept link id = the subject of its backlink_earned Unit (subjectService scraping-service)."
+          },
+          "referringDomain": {
+            "type": "string"
+          },
+          "referringUrl": {
+            "type": "string"
+          },
+          "targetUrl": {
+            "type": "string"
+          },
+          "anchor": {
+            "type": "string",
+            "nullable": true
+          },
+          "dofollow": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "domainRank": {
+            "type": "number",
+            "nullable": true,
+            "description": "Referring domain authority, DataForSEO rank scale 0-1000 (null = unknown)."
+          },
+          "spamScore": {
+            "type": "number",
+            "nullable": true,
+            "description": "Provider spam score 0-100 (null = unknown)."
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the provider first saw this domain link to the brand."
+          },
+          "verifiedAt": {
+            "type": "string",
+            "description": "When we fetched the referring page and found the link live."
+          },
+          "provider": {
+            "type": "string"
+          },
+          "unitDeclared": {
+            "type": "boolean"
+          },
+          "declaredRunId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "referringDomain",
+          "referringUrl",
+          "targetUrl",
+          "anchor",
+          "dofollow",
+          "domainRank",
+          "spamScore",
+          "firstSeenAt",
+          "verifiedAt",
+          "provider",
+          "unitDeclared",
+          "declaredRunId"
+        ]
+      },
+      "BacklinkError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Named refusal: brand_required (400), wrong_outcome (400), invalid_competitors (400), Invalid request (400), insufficient_credit (402), brand_not_found (404), check_in_progress (409), brand_has_no_site (422), provider_unavailable / billing_unavailable / key_unavailable / brand_service_unavailable / spend_not_declared / outcome_declaration_failed / service_misconfigured (502)."
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "nullable": true
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "BacklinkCheckRequest": {
+        "type": "object",
+        "properties": {
+          "outcomeKey": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The outcome the caller makes. Must be \"backlink_earned\"; anything else = 400 wrong_outcome.",
+            "example": "backlink_earned"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Caller-stated key (e.g. the day). The same key again answers the completed check again: no second spend, no second Unit.",
+            "example": "2026-11-09"
+          },
+          "windowDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "description": "How far back \"new\" reaches on the brand's FIRST check (links whose referring domain first linked within this many days). Later checks reuse that first window start, so they count what appeared since.",
+            "example": 60
+          },
+          "provider": {
+            "$ref": "#/components/schemas/BacklinkProvider"
+          }
+        },
+        "required": [
+          "outcomeKey",
+          "idempotencyKey",
+          "windowDays"
+        ]
+      },
+      "BacklinkListResponse": {
+        "type": "object",
+        "properties": {
+          "brandId": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Backlink"
+            }
+          }
+        },
+        "required": [
+          "brandId",
+          "count",
+          "links"
+        ]
+      },
+      "LinkGapResponse": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "brandId": {
+            "type": "string"
+          },
+          "brandDomain": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/BacklinkProvider"
+          },
+          "competitors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minCompetitors": {
+            "type": "integer"
+          },
+          "minDomainRank": {
+            "type": "integer"
+          },
+          "maxSpamScore": {
+            "type": "integer"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                },
+                "domainRank": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "spamScore": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "competitorCount": {
+                  "type": "integer"
+                },
+                "competitors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "domain",
+                "domainRank",
+                "spamScore",
+                "competitorCount",
+                "competitors"
+              ]
+            },
+            "description": "Domains linking to >= minCompetitors competitors and NOT to the brand, most competitors then highest rank first."
+          },
+          "scannedCount": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "costMicroUsd": {
+            "type": "number"
+          },
+          "providerCalls": {
+            "type": "integer"
+          },
+          "reportedAt": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reportId",
+          "brandId",
+          "brandDomain",
+          "provider",
+          "competitors",
+          "minCompetitors",
+          "minDomainRank",
+          "maxSpamScore",
+          "sources",
+          "scannedCount",
+          "truncated",
+          "runId",
+          "costMicroUsd",
+          "providerCalls",
+          "reportedAt",
+          "replayed"
+        ]
+      },
+      "LinkGapRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "2026-11-09"
+          },
+          "competitors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 3
+            },
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Competitor domains or URLs (1-10).",
+            "example": [
+              "belkins.io",
+              "martal.ca",
+              "gojiberry.ai"
+            ]
+          },
+          "minCompetitors": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Keep a source only when it links to at least this many of the competitors.",
+            "example": 2
+          },
+          "minDomainRank": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Keep a source only when its rank (DataForSEO 0-1000) is at least this. 0 = no floor.",
+            "example": 200
+          },
+          "maxSpamScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Drop a source whose known spam score is above this.",
+            "example": 5
+          },
+          "provider": {
+            "$ref": "#/components/schemas/BacklinkProvider"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "competitors",
+          "minCompetitors",
+          "minDomainRank",
+          "maxSpamScore"
+        ]
       }
     },
     "parameters": {}
@@ -1050,6 +1489,223 @@
           },
           "401": {
             "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/orgs/backlinks/checks": {
+      "post": {
+        "summary": "Check the brand's backlinks: keep new live links, declare one backlink_earned Unit each on the caller's run",
+        "description": "Org route called AS the caller's run: headers x-api-key, x-org-id, x-user-id, x-run-id (the run every hold, actual cost and Unit is written on), x-brand-id (exactly ONE brand: the brand whose site is checked), x-campaign-id optional. Reads the referring domains that first linked to the brand's site since the brand's window start (provider via treg, metered on the caller's run: treg-micro-usd held, authorized, actualized), fetches each candidate referring page to verify the link is live now, keeps every verified link new for the brand (one referring domain = one earned link per org x brand, ever), and declares one backlink_earned Unit per kept link on x-run-id (subjectService scraping-service, subjectId = link id). Measured 2026-11-09: one call $0.024 + $0.000036 per row (~$0.026) when nothing is new, ~$0.05 when new domains exist.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacklinkCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Check answer (new links kept, or nothing new)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkCheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "brand_required | wrong_outcome | invalid_competitors | Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "insufficient_credit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "brand_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "check_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "brand_has_no_site",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "provider_unavailable | billing_unavailable | key_unavailable | brand_service_unavailable | spend_not_declared | outcome_declaration_failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orgs/backlinks": {
+      "get": {
+        "summary": "Read back the brand's kept links (x-brand-id)",
+        "description": "Org route called AS the caller's run: headers x-api-key, x-org-id, x-user-id, x-run-id (the run every hold, actual cost and Unit is written on), x-brand-id (exactly ONE brand: the brand whose site is checked), x-campaign-id optional. No spend.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kept links, oldest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "brand_required | wrong_outcome | invalid_competitors | Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orgs/backlinks/link-gaps": {
+      "post": {
+        "summary": "Link gap: domains linking to several competitors but not to the brand (no Unit)",
+        "description": "Org route called AS the caller's run: headers x-api-key, x-org-id, x-user-id, x-run-id (the run every hold, actual cost and Unit is written on), x-brand-id (exactly ONE brand: the brand whose site is checked), x-campaign-id optional. One treg call (DataForSEO domain intersection, ~$0.024 + $0.000036 per row) metered on the caller's run like the check. Declares NO Unit. Idempotent per (idempotencyKey, sorted competitor set).",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkGapRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Link-gap sources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkGapResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "brand_required | wrong_outcome | invalid_competitors | Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "insufficient_credit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "brand_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "check_in_progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "brand_has_no_site",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "provider_unavailable | billing_unavailable | key_unavailable | brand_service_unavailable | spend_not_declared | outcome_declaration_failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinkError"
+                }
+              }
+            }
           }
         }
       }

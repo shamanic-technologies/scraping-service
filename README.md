@@ -29,6 +29,29 @@ Optional tracking headers (injected automatically by workflow-service):
 | `GET` | `/scrape/by-url?url=` | Get cached result by URL |
 | `POST` | `/map` | Discover all URLs on a website |
 | `POST` | `/extract` | Extract article metadata (authors, date) via LLM |
+| `POST` | `/orgs/backlinks/checks` | Check the brand's backlinks: keep new live links, one `backlink_earned` Unit each on the caller's run |
+| `GET` | `/orgs/backlinks` | Read back the brand's kept links |
+| `POST` | `/orgs/backlinks/link-gaps` | Domains linking to several competitors but not to the brand (no Unit) |
+
+### Backlinks (BACKLINK-ENGINE-1109)
+
+Org routes called AS the caller's run: `x-org-id`, `x-user-id`, `x-run-id` (every treg hold, actual cost and Unit lands on it), `x-brand-id` (exactly one brand). Provider: DataForSEO through treg (`treg-micro-usd`: held, authorized on a platform key, actualized, hold cancelled).
+
+```json
+POST /orgs/backlinks/checks
+{ "outcomeKey": "backlink_earned", "idempotencyKey": "2026-11-09", "windowDays": 60, "provider": "dataforseo" }
+```
+- `outcomeKey` other than `backlink_earned` = 400 `wrong_outcome`. `windowDays` sets the brand's window start on its FIRST check; later checks reuse it.
+- New = the referring DOMAIN first linked inside the window; each candidate page is fetched and kept only when it holds a link to the brand now. One referring domain = one kept link per org x brand, ever; its id is the Unit's subject (`subjectService: "scraping-service"`).
+- Same `idempotencyKey` = the stored answer (`replayed: true`, no spend).
+- Answer: `status` (`new_links_kept` | `nothing_new`), `newLinks[]` (`referringDomain`, `referringUrl`, `targetUrl`, `domainRank` 0-1000, `spamScore`, `firstSeenAt`, `verifiedAt`, `unitDeclared`), `unitsDeclared`, `rejected[]`, `windowStart`, `firstCheck`, `costMicroUsd`.
+- Refusals: `brand_required` 400, `insufficient_credit` 402, `brand_not_found` 404, `check_in_progress` 409, `brand_has_no_site` 422, `provider_unavailable` / `billing_unavailable` / `key_unavailable` / `spend_not_declared` / `outcome_declaration_failed` 502.
+
+```json
+POST /orgs/backlinks/link-gaps
+{ "idempotencyKey": "2026-11-09", "competitors": ["belkins.io", "martal.ca", "gojiberry.ai"], "minCompetitors": 2, "minDomainRank": 200, "maxSpamScore": 5 }
+```
+Answer `sources[]` (`domain`, `domainRank`, `spamScore`, `competitorCount`, `competitors`), most competitors then highest rank first. Idempotent per key + sorted competitor set. Declares no Unit.
 
 ### POST /scrape
 
@@ -153,6 +176,8 @@ npm run dev
 | `RUNS_SERVICE_API_KEY` | API key for RunsService |
 | `BILLING_SERVICE_URL` | Billing-service base URL for credit authorization |
 | `BILLING_SERVICE_API_KEY` | API key for billing-service |
+| `BRAND_SERVICE_URL` | brand-service base URL (backlinks: the brand's site) |
+| `BRAND_SERVICE_API_KEY` | API key for brand-service |
 | `PORT` | Server port (default: 3010) |
 
 ## Scripts

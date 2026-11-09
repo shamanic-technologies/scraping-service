@@ -176,6 +176,94 @@ export const extractCache = pgTable(
   ]
 );
 
+/**
+ * Backlink checks (BACKLINK-ENGINE-1109): one row per (org, brand, caller idempotency key).
+ * `windowStart` = how far back "new" reaches: set by the brand's FIRST check from the
+ * caller's windowDays, reused by every later check of that org × brand.
+ * `answer` = the completed answer, served again on a replay (no second spend).
+ */
+export const backlinkChecks = pgTable(
+  "backlink_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: text("org_id").notNull(),
+    brandId: text("brand_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    runId: text("run_id").notNull(),
+    campaignId: text("campaign_id"),
+    provider: text("provider").notNull(),
+    brandDomain: text("brand_domain"),
+    windowStart: timestamp("window_start", { withTimezone: true }),
+    status: text("status").notNull(), // 'running' | 'completed' | 'failed'
+    errorCode: text("error_code"),
+    answer: jsonb("answer"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("idx_backlink_checks_idem").on(table.orgId, table.brandId, table.idempotencyKey),
+    index("idx_backlink_checks_brand").on(table.orgId, table.brandId, table.createdAt),
+  ]
+);
+
+/**
+ * Kept backlinks: a link from another domain to the brand's site, verified live on the
+ * referring page. One referring domain = one earned link per org × brand, ever. The row id
+ * is the subject of its `backlink_earned` Unit (subjectService "scraping-service").
+ * `declaredRunId` null = Unit not yet declared (the next check of the brand declares it).
+ */
+export const brandBacklinks = pgTable(
+  "brand_backlinks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: text("org_id").notNull(),
+    brandId: text("brand_id").notNull(),
+    referringDomain: text("referring_domain").notNull(),
+    referringUrl: text("referring_url").notNull(),
+    targetUrl: text("target_url").notNull(),
+    anchor: text("anchor"),
+    dofollow: boolean("dofollow"),
+    domainRank: integer("domain_rank"),
+    spamScore: integer("spam_score"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }),
+    provider: text("provider").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+    checkId: uuid("check_id").notNull(),
+    declaredRunId: text("declared_run_id"),
+    declaredAt: timestamp("declared_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idx_brand_backlinks_domain").on(table.orgId, table.brandId, table.referringDomain),
+  ]
+);
+
+/**
+ * Link-gap reports (BACKLINK-ENGINE-1109): domains linking to several of the brand's
+ * competitors but not to the brand. Material for outreach, never a Unit. One row per
+ * (org, brand, idempotency key, sorted competitor set); `answer` served again on a replay.
+ */
+export const linkGapReports = pgTable(
+  "link_gap_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: text("org_id").notNull(),
+    brandId: text("brand_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    competitorsKey: text("competitors_key").notNull(),
+    runId: text("run_id").notNull(),
+    provider: text("provider").notNull(),
+    status: text("status").notNull(),
+    errorCode: text("error_code"),
+    answer: jsonb("answer"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("idx_link_gap_reports_idem").on(table.orgId, table.brandId, table.idempotencyKey, table.competitorsKey),
+  ]
+);
+
 // Type exports
 export type ScrapeRequest = typeof scrapeRequests.$inferSelect;
 export type NewScrapeRequest = typeof scrapeRequests.$inferInsert;
