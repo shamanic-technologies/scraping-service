@@ -492,3 +492,166 @@ registry.registerPath({
     401: { description: "Unauthorized" },
   },
 });
+
+// --- Backlink Engine (BACKLINK-ENGINE-1109) ---
+
+const BACKLINK_IDENTITY_NOTE =
+  "Org route called AS the caller's run: headers x-api-key, x-org-id, x-user-id, x-run-id (the run every hold, actual cost and Unit is written on), x-brand-id (exactly ONE brand: the brand whose site is checked), x-campaign-id optional.";
+
+export const BacklinkProviderSchema = z
+  .enum(["dataforseo"])
+  .openapi("BacklinkProvider", { description: "Backlink data provider (a tactic the caller may state; closed list). Absent = dataforseo." });
+
+export const BacklinkCheckRequestSchema = z
+  .object({
+    outcomeKey: z.string().min(1).openapi({ description: 'The outcome the caller makes. Must be "backlink_earned"; anything else = 400 wrong_outcome.', example: "backlink_earned" }),
+    idempotencyKey: z.string().min(1).max(200).openapi({ description: "Caller-stated key (e.g. the day). The same key again answers the completed check again: no second spend, no second Unit.", example: "2026-11-09" }),
+    windowDays: z.number().int().min(1).max(365).openapi({ description: "How far back \"new\" reaches on the brand's FIRST check (links whose referring domain first linked within this many days). Later checks reuse that first window start, so they count what appeared since.", example: 60 }),
+    provider: BacklinkProviderSchema.optional(),
+  })
+  .openapi("BacklinkCheckRequest");
+
+const BacklinkSchema = z
+  .object({
+    id: z.string().uuid().openapi({ description: "Kept link id = the subject of its backlink_earned Unit (subjectService scraping-service)." }),
+    referringDomain: z.string(),
+    referringUrl: z.string(),
+    targetUrl: z.string(),
+    anchor: z.string().nullable(),
+    dofollow: z.boolean().nullable(),
+    domainRank: z.number().nullable().openapi({ description: "Referring domain authority, DataForSEO rank scale 0-1000 (null = unknown)." }),
+    spamScore: z.number().nullable().openapi({ description: "Provider spam score 0-100 (null = unknown)." }),
+    firstSeenAt: z.string().nullable().openapi({ description: "When the provider first saw this domain link to the brand." }),
+    verifiedAt: z.string().openapi({ description: "When we fetched the referring page and found the link live." }),
+    provider: z.string(),
+    unitDeclared: z.boolean(),
+    declaredRunId: z.string().nullable(),
+  })
+  .openapi("Backlink");
+
+export const BacklinkCheckResponseSchema = z
+  .object({
+    checkId: z.string().uuid(),
+    status: z.enum(["new_links_kept", "nothing_new"]),
+    brandId: z.string(),
+    brandDomain: z.string(),
+    provider: BacklinkProviderSchema,
+    outcomeKey: z.literal("backlink_earned"),
+    firstCheck: z.boolean(),
+    windowStart: z.string(),
+    runId: z.string(),
+    newLinks: z.array(BacklinkSchema).openapi({ description: "Links kept by THIS check (one per new referring domain, verified live)." }),
+    unitsDeclared: z.number().int().openapi({ description: "backlink_earned Units declared on runId by this check (this check's links + any kept earlier whose Unit was not declared yet)." }),
+    candidatesCount: z.number().int(),
+    rejected: z.array(z.object({ referringDomain: z.string(), referringUrl: z.string(), verification: z.enum(["not_linking", "unreachable"]) })).openapi({ description: "Candidates not kept now (retried by the brand's next check)." }),
+    newReferringDomainsCount: z.number().int(),
+    truncated: z.boolean().openapi({ description: "The provider held more rows than one call returns (1000)." }),
+    costMicroUsd: z.number().openapi({ description: "treg spend of this check in micro-USD (treg-micro-usd), actualized on runId." }),
+    providerCalls: z.number().int(),
+    checkedAt: z.string(),
+    replayed: z.boolean().openapi({ description: "true = the stored answer of a completed check with the same idempotencyKey (nothing spent)." }),
+  })
+  .openapi("BacklinkCheckResponse");
+
+export const BacklinkListResponseSchema = z
+  .object({ brandId: z.string(), count: z.number().int(), links: z.array(BacklinkSchema) })
+  .openapi("BacklinkListResponse");
+
+export const LinkGapRequestSchema = z
+  .object({
+    idempotencyKey: z.string().min(1).max(200).openapi({ example: "2026-11-09" }),
+    competitors: z.array(z.string().min(3)).min(1).max(10).openapi({ description: "Competitor domains or URLs (1-10).", example: ["belkins.io", "martal.ca", "gojiberry.ai"] }),
+    minCompetitors: z.number().int().min(1).max(10).openapi({ description: "Keep a source only when it links to at least this many of the competitors.", example: 2 }),
+    minDomainRank: z.number().int().min(0).max(1000).openapi({ description: "Keep a source only when its rank (DataForSEO 0-1000) is at least this. 0 = no floor.", example: 200 }),
+    maxSpamScore: z.number().int().min(0).max(100).openapi({ description: "Drop a source whose known spam score is above this.", example: 5 }),
+    provider: BacklinkProviderSchema.optional(),
+  })
+  .openapi("LinkGapRequest");
+
+export const LinkGapResponseSchema = z
+  .object({
+    reportId: z.string().uuid(),
+    brandId: z.string(),
+    brandDomain: z.string(),
+    provider: BacklinkProviderSchema,
+    competitors: z.array(z.string()),
+    minCompetitors: z.number().int(),
+    minDomainRank: z.number().int(),
+    maxSpamScore: z.number().int(),
+    sources: z.array(
+      z.object({
+        domain: z.string(),
+        domainRank: z.number().nullable(),
+        spamScore: z.number().nullable(),
+        competitorCount: z.number().int(),
+        competitors: z.array(z.string()),
+      })
+    ).openapi({ description: "Domains linking to >= minCompetitors competitors and NOT to the brand, most competitors then highest rank first." }),
+    scannedCount: z.number().int(),
+    truncated: z.boolean(),
+    runId: z.string(),
+    costMicroUsd: z.number(),
+    providerCalls: z.number().int(),
+    reportedAt: z.string(),
+    replayed: z.boolean(),
+  })
+  .openapi("LinkGapResponse");
+
+const BacklinkErrorSchema = z
+  .object({
+    error: z.string().openapi({
+      description:
+        "Named refusal: brand_required (400), wrong_outcome (400), invalid_competitors (400), Invalid request (400), insufficient_credit (402), brand_not_found (404), check_in_progress (409), brand_has_no_site (422), provider_unavailable / billing_unavailable / key_unavailable / brand_service_unavailable / spend_not_declared / outcome_declaration_failed / service_misconfigured (502).",
+    }),
+    message: z.string().optional(),
+    details: z.any().optional(),
+  })
+  .openapi("BacklinkError");
+
+const backlinkErrors = {
+  400: { description: "brand_required | wrong_outcome | invalid_competitors | Invalid request", content: { "application/json": { schema: BacklinkErrorSchema } } },
+  402: { description: "insufficient_credit", content: { "application/json": { schema: BacklinkErrorSchema } } },
+  404: { description: "brand_not_found", content: { "application/json": { schema: BacklinkErrorSchema } } },
+  409: { description: "check_in_progress", content: { "application/json": { schema: BacklinkErrorSchema } } },
+  422: { description: "brand_has_no_site", content: { "application/json": { schema: BacklinkErrorSchema } } },
+  502: { description: "provider_unavailable | billing_unavailable | key_unavailable | brand_service_unavailable | spend_not_declared | outcome_declaration_failed", content: { "application/json": { schema: BacklinkErrorSchema } } },
+};
+
+registry.registerPath({
+  method: "post",
+  path: "/orgs/backlinks/checks",
+  summary: "Check the brand's backlinks: keep new live links, declare one backlink_earned Unit each on the caller's run",
+  description:
+    `${BACKLINK_IDENTITY_NOTE} Reads the referring domains that first linked to the brand's site since the brand's window start (provider via treg, metered on the caller's run: treg-micro-usd held, authorized, actualized), fetches each candidate referring page to verify the link is live now, keeps every verified link new for the brand (one referring domain = one earned link per org x brand, ever), and declares one backlink_earned Unit per kept link on x-run-id (subjectService scraping-service, subjectId = link id). Measured 2026-11-09: one call $0.024 + $0.000036 per row (~$0.026) when nothing is new, ~$0.05 when new domains exist.`,
+  security: [{ apiKey: [] }],
+  request: { body: { content: { "application/json": { schema: BacklinkCheckRequestSchema } } } },
+  responses: {
+    200: { description: "Check answer (new links kept, or nothing new)", content: { "application/json": { schema: BacklinkCheckResponseSchema } } },
+    ...backlinkErrors,
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/orgs/backlinks",
+  summary: "Read back the brand's kept links (x-brand-id)",
+  description: `${BACKLINK_IDENTITY_NOTE} No spend.`,
+  security: [{ apiKey: [] }],
+  responses: {
+    200: { description: "Kept links, oldest first", content: { "application/json": { schema: BacklinkListResponseSchema } } },
+    400: backlinkErrors[400],
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/orgs/backlinks/link-gaps",
+  summary: "Link gap: domains linking to several competitors but not to the brand (no Unit)",
+  description: `${BACKLINK_IDENTITY_NOTE} One treg call (DataForSEO domain intersection, ~$0.024 + $0.000036 per row) metered on the caller's run like the check. Declares NO Unit. Idempotent per (idempotencyKey, sorted competitor set).`,
+  security: [{ apiKey: [] }],
+  request: { body: { content: { "application/json": { schema: LinkGapRequestSchema } } } },
+  responses: {
+    200: { description: "Link-gap sources", content: { "application/json": { schema: LinkGapResponseSchema } } },
+    ...backlinkErrors,
+  },
+});
