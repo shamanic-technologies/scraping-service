@@ -29,6 +29,9 @@ describe("OpenAPI spec", () => {
     expect(paths).toContain("/scrape/by-url");
     expect(paths).toContain("/map");
     expect(paths).toContain("/openapi.json");
+    expect(paths).toContain("/orgs/backlinks/checks");
+    expect(paths).toContain("/orgs/backlinks");
+    expect(paths).toContain("/orgs/backlinks/link-gaps");
   });
 
   it("should include security scheme for API key", () => {

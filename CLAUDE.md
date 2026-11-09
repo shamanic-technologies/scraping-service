@@ -34,13 +34,13 @@ A scrape run declares an outcome only when the CALLER states it (`outcomeKey`): 
 
 Every dollar of our runs since inception ($271.16, 135k runs, first spend 2026-02-08) sits on one of: declared `company_researched` $42.00 (5,884 sales scrapes, backfill above), support $229.13 (own `retired_product` marks + the CALLER's mark that our child run rides: brand-service `brand_setup`, outlets/PR `retired_product`, `product_feature`, plus 8 runs marked through `src/scripts/mark-support.ts`: 6 staff scrapes of our own sites `staff_experiment`, 2 outlets price-request maps `retired_product`), `unattributed_production` $0.03 (4 Feb 2026 sales scrapes: real attempts at `company_researched` with no campaign, but `scrape_requests` starts 2026-04-14 so we hold no URL, no subject = nothing declared, never support; runs-service states them on their own line). The support-function list is runs-service's: `mark-support` sends any name and runs-service refuses an unknown one (400). Failed scrapes carry $0. Re-measure BY RUN ID (`scrape_requests.run_id` loaded into a temp table on runs_service): a `service_name` scan of `runs` times out.
 
-### Migrations gotcha (READ before any schema change)
+### Backlinks (BACKLINK-ENGINE-1109)
 
-The `drizzle/` folder is **empty** and the prod schema was applied via manual `db:push`, NOT migration files. `src/index.ts` calls `migrate(db, { migrationsFolder: "./drizzle" })` on boot, but with an empty folder that is a **no-op**. So the generic "every service auto-runs migrations at boot" assumption does NOT hold here — a new column will **silently never be created in prod** if you just edit `src/db/schema.ts` and ship.
+`src/lib/backlinks.ts` (doors), `treg-meter.ts` (treg spend held/actualized on the CALLER's run, no child run: the script's Units and cents sit on one run), `backlink-provider.ts` (DataForSEO via treg), `link-verify.ts` (free direct fetch of the referring page). Kept link = `brand_backlinks` row, unique (org, brand, referring domain); its id is the `backlink_earned` subject. "New" is domain-level (referring-domain `first_seen` inside the brand's window, set by its FIRST check). A Unit not declared stays `declared_run_id IS NULL`; the next check declares it. Link gap declares nothing.
 
-When a schema change is genuinely needed, pick a mechanism explicitly:
-- **Migration path:** `npm run db:generate` to emit `drizzle/<n>_*.sql` (boot `migrate()` then applies it). Make the SQL idempotent.
-- **Manual push:** `npm run db:push` against the target DB (writes to prod DB → requires approval).
+### Migrations
+
+`drizzle/` holds the migrations; boot `migrate()` applies them (10 recorded in prod `drizzle.__drizzle_migrations`, 2026-11-09; an older note here said the folder was empty: wrong). A schema change = an idempotent `drizzle/<n>_*.sql` (`IF NOT EXISTS`) + a `_journal.json` entry whose `when` is later than the last one.
 
 Prefer avoiding schema changes when the data is request-scoped: e.g. `result.rawHtml` is returned inline from the live scrape and never persisted, so it needed no column.
 
