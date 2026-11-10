@@ -4,27 +4,34 @@
  *  - verified: the page holds the link now
  *  - not_linking: the page answered, no link to the brand on it
  *  - unreachable: the page did not answer (timeout, 4xx/5xx, blocked)
+ *  - redirects_to_brand: the referring URL lands on the brand's own site (a domain the brand
+ *    owns forwarding to it): the brand's own navigation would read as a backlink, never kept
  * Only `verified` links are kept; the others are retried by the brand's next check.
  */
 
 import type { FetchLike } from "./treg-meter.js";
 import { stripWww } from "./backlink-provider.js";
 
-export type Verification = "verified" | "not_linking" | "unreachable";
+export type Verification = "verified" | "not_linking" | "unreachable" | "redirects_to_brand";
 
 const MAX_BYTES = 3_000_000;
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
+/** True when `host` is `brandDomain` or one of its subdomains (www ignored). */
+export function isBrandHost(host: string, brandDomain: string): boolean {
+  const h = stripWww(host.toLowerCase());
+  const target = stripWww(brandDomain);
+  return h === target || h.endsWith(`.${target}`);
+}
+
 /** True when the HTML holds an anchor pointing at `brandDomain` or one of its subdomains. */
 export function htmlLinksTo(html: string, brandDomain: string): boolean {
   const re = /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
-  const target = stripWww(brandDomain);
   for (let m = re.exec(html); m; m = re.exec(html)) {
     const href = (m[1] ?? m[2] ?? m[3] ?? "").trim().replace(/&amp;/g, "&");
     const hm = /^(?:https?:)?\/\/([^/?#:]+)/i.exec(href);
     if (!hm) continue;
-    const host = stripWww(hm[1]);
-    if (host === target || host.endsWith(`.${target}`)) return true;
+    if (isBrandHost(hm[1], brandDomain)) return true;
   }
   return false;
 }
@@ -41,6 +48,13 @@ export async function verifyLink(referringUrl: string, brandDomain: string, fetc
     return "unreachable";
   }
   if (!res.ok) return "unreachable";
+  let finalHost = "";
+  try {
+    finalHost = new URL(res.url || referringUrl).hostname;
+  } catch {
+    /* keep "" */
+  }
+  if (finalHost && isBrandHost(finalHost, brandDomain)) return "redirects_to_brand";
   let html: string;
   try {
     html = (await res.text()).slice(0, MAX_BYTES);

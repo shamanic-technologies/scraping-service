@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { serviceAuth } from "../../src/middleware/auth.js";
 import { buildBacklinkRouter } from "../../src/routes/backlinks.js";
 import { BacklinkError } from "../../src/lib/treg-meter.js";
-import { htmlLinksTo } from "../../src/lib/link-verify.js";
+import { htmlLinksTo, verifyLink } from "../../src/lib/link-verify.js";
 import { matchNewDomain } from "../../src/lib/backlinks.js";
 import type { BacklinkStore, CheckRow, GapRow, KeptLinkRow } from "../../src/lib/backlinks.js";
 import type { Verification } from "../../src/lib/link-verify.js";
@@ -384,5 +384,23 @@ describe("link verification", () => {
     expect(matchNewDomain("blog.sota2.com", ["sota2.com"])).toBe("sota2.com");
     expect(matchNewDomain("sota2.com", ["blog.sota2.com"])).toBe("blog.sota2.com");
     expect(matchNewDomain("oldfriend.com", ["sota2.com"])).toBeNull();
+  });
+});
+
+describe("verifyLink: a domain forwarding to the brand's own site is never a backlink", () => {
+  const page = (url: string, html: string) =>
+    (async () => ({ ok: true, status: 200, url, text: async () => html }) as unknown as Response);
+  const brandNav = '<nav><a href="https://distribute.you/pricing">Pricing</a></nav>';
+
+  it("a referring URL that redirects onto the brand's site is rejected, though the landed page links to the brand", async () => {
+    // leaddistribute.com -> https://distribute.you/ (the brand's own sending domain forwarding home)
+    expect(await verifyLink("https://leaddistribute.com/", "distribute.you", page("https://distribute.you/", brandNav))).toBe("redirects_to_brand");
+    expect(await verifyLink("https://x.com/", "distribute.you", page("https://app.distribute.you/login", brandNav))).toBe("redirects_to_brand");
+  });
+
+  it("a third-party page holding the link is still verified, a redirect to another third party too", async () => {
+    expect(await verifyLink("https://blog.sota2.com/p", "distribute.you", page("https://blog.sota2.com/p", brandNav))).toBe("verified");
+    expect(await verifyLink("http://sota2.com/p", "distribute.you", page("https://www.sota2.com/p", brandNav))).toBe("verified");
+    expect(await verifyLink("https://notdistribute.you/", "distribute.you", page("https://notdistribute.you/", "<p>hi</p>"))).toBe("not_linking");
   });
 });
