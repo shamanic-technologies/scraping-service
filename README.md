@@ -44,7 +44,7 @@ POST /orgs/backlinks/checks
 - `outcomeKey` other than `backlink_earned` = 400 `wrong_outcome`. `windowDays` sets the brand's window start on its FIRST check; later checks reuse it.
 - New = the referring DOMAIN first linked inside the window; each candidate page is fetched and kept only when it holds a link to the brand now. One referring domain = one kept link per org x brand, ever; its id is the Unit's subject (`subjectService: "scraping-service"`).
 - Same `idempotencyKey` = the stored answer (`replayed: true`, no spend).
-- Answer: `status` (`new_links_kept` | `nothing_new`), `newLinks[]` (`referringDomain`, `referringUrl`, `targetUrl`, `domainRank` 0-1000, `spamScore`, `firstSeenAt`, `verifiedAt`, `unitDeclared`), `unitsDeclared`, `rejected[]`, `windowStart`, `firstCheck`, `costMicroUsd`.
+- Answer: `status` (`new_links_kept` | `nothing_new`), `newLinks[]` (`referringDomain`, `referringUrl`, `targetUrl`, `domainRank` 0-1000, `spamScore`, `firstSeenAt`, `verifiedAt`, `unitDeclared`), `unitsDeclared`, `rejected[]` (`verification`: `not_linking` | `unreachable` | `redirects_to_brand` = the referring URL lands on the brand's own site, e.g. a domain the brand owns forwarding home), `windowStart`, `firstCheck`, `costMicroUsd`.
 - Refusals: `brand_required` 400, `insufficient_credit` 402, `brand_not_found` 404, `check_in_progress` 409, `brand_has_no_site` 422, `provider_unavailable` / `billing_unavailable` / `key_unavailable` / `spend_not_declared` / `outcome_declaration_failed` 502.
 
 ```json
