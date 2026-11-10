@@ -543,7 +543,7 @@ export const BacklinkCheckResponseSchema = z
     newLinks: z.array(BacklinkSchema).openapi({ description: "Links kept by THIS check (one per new referring domain, verified live)." }),
     unitsDeclared: z.number().int().openapi({ description: "backlink_earned Units declared on runId by this check (this check's links + any kept earlier whose Unit was not declared yet)." }),
     candidatesCount: z.number().int(),
-    rejected: z.array(z.object({ referringDomain: z.string(), referringUrl: z.string(), verification: z.enum(["not_linking", "unreachable"]) })).openapi({ description: "Candidates not kept now (retried by the brand's next check)." }),
+    rejected: z.array(z.object({ referringDomain: z.string(), referringUrl: z.string(), verification: z.enum(["not_linking", "unreachable", "redirects_to_brand"]) })).openapi({ description: "Candidates not kept now (retried by the brand's next check)." }),
     newReferringDomainsCount: z.number().int(),
     truncated: z.boolean().openapi({ description: "The provider held more rows than one call returns (1000)." }),
     costMicroUsd: z.number().openapi({ description: "treg spend of this check in micro-USD (treg-micro-usd), actualized on runId." }),
