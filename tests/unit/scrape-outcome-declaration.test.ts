@@ -165,7 +165,7 @@ describe("POST /scrape — outcome declaration (COST-ACCOUNTING-1023)", () => {
   it("cache hit → no spend, nothing declared", async () => {
     mockCacheFindFirst.mockResolvedValueOnce({ resultId: "r" });
     const { db } = await import("../../src/db/index.js");
-    (db.query.scrapeResults.findFirst as any).mockResolvedValueOnce({ id: "r", url: "https://acme.com", rawMarkdown: "x".repeat(2000) });
+    (db.query.scrapeResults.findFirst as any).mockResolvedValueOnce({ id: "r", url: "https://acme.com", rawMarkdown: "x".repeat(2000), resolvedUrl: "https://acme.com/" });
     const res = await request(app).post("/scrape").send({ url: "https://acme.com", outcomeKey: "company_researched" });
     expect(res.body.cached).toBe(true);
     expect(mockDeclareInBackground).not.toHaveBeenCalled();

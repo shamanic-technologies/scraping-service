@@ -31,6 +31,20 @@ describe("scrapeUrlWithScrapeDo", () => {
     expect(calledUrl.searchParams.get("timeout")).toBe("60000");
   });
 
+  it("reports the final URL after redirects from the scrape.do-resolved-url header", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("content", { status: 200, headers: { "scrape.do-resolved-url": "https://distribute.you/" } })
+    );
+    const result = await scrapeUrlWithScrapeDo("https://pressbeat.io", "token");
+    expect(result.resolvedUrl).toBe("https://distribute.you/");
+  });
+
+  it("leaves resolvedUrl undefined when scrape.do does not report it", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("content", { status: 200 }));
+    const result = await scrapeUrlWithScrapeDo("https://example.com", "token");
+    expect(result.resolvedUrl).toBeUndefined();
+  });
+
   it("should set render=true and wait param when waitFor is provided", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("content", { status: 200 })

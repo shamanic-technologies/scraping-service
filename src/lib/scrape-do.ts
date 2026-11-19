@@ -81,9 +81,12 @@ export async function scrapeUrlWithScrapeDo(
     const parsedCost = requestCostHeader ? Number(requestCostHeader) : NaN;
     const requestCost = Number.isFinite(parsedCost) ? parsedCost : undefined;
 
+    // scrape.do reports the final URL after redirects in this header.
+    const resolvedUrl = response.headers.get("scrape.do-resolved-url") || undefined;
+
     return wantsRawHtml
-      ? { success: true, html: body, requestCost }
-      : { success: true, markdown: body, requestCost };
+      ? { success: true, html: body, requestCost, resolvedUrl }
+      : { success: true, markdown: body, requestCost, resolvedUrl };
   };
 
   try {

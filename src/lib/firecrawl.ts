@@ -24,6 +24,12 @@ export interface ScrapeResponse {
   };
   error?: string;
   requestCost?: number;
+  /**
+   * The URL the page was actually served from, after redirects. Differs from
+   * the requested URL when the site redirects (a domain forwarded to another
+   * company's site). Undefined when the provider did not report it.
+   */
+  resolvedUrl?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 60000;
@@ -74,6 +80,8 @@ export async function scrapeUrl(
       markdown: result.markdown,
       html: wantsRawHtml ? ((result as any).rawHtml ?? result.html) : result.html,
       metadata: result.metadata,
+      // Firecrawl: metadata.sourceURL = requested, metadata.url = final after redirects.
+      resolvedUrl: typeof result.metadata?.url === "string" ? result.metadata.url : undefined,
     };
   };
 
