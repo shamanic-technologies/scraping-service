@@ -108,6 +108,15 @@ const ScrapeResultSchema = z
     products: z.any().nullable(),
     services: z.any().nullable(),
     rawMarkdown: z.string().nullable(),
+    resolvedUrl: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The URL the page was actually served from, after redirects. Differs from `url` when the site redirects " +
+          "(e.g. a domain forwarded to another company's site): a caller that attributes the content to `url`'s owner " +
+          "should check it. Null only when the provider did not report it.",
+      }),
     rawHtml: z
       .string()
       .nullable()
