@@ -108,7 +108,10 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         // (near-empty visible text). Don't let it mask the escalation — treat a thin
         // cached result as a miss and fall through to a fresh scrape, which will now
         // escalate to JS render and overwrite the shell.
-        if (result && !isThinContent(result.rawMarkdown)) {
+        // A row scraped before the final URL was recorded cannot tell a caller
+        // whether the page redirected off-site (a domain forwarded to another
+        // company): treat it as a miss so the fresh scrape records it.
+        if (result && !isThinContent(result.rawMarkdown) && result.resolvedUrl) {
           return res.json({
             cached: true,
             result: formatResult(result),
@@ -208,7 +211,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // Scrape the URL using the selected provider
     // When provider is scrape-do (default), use the escalation chain:
     // basic → render → render+super �� firecrawl fallback
-    let scrapeResponse: { success: boolean; markdown?: string; html?: string; metadata?: any; error?: string };
+    let scrapeResponse: { success: boolean; markdown?: string; html?: string; metadata?: any; error?: string; resolvedUrl?: string };
     let actualCostName: string;
     let actualKeySource: "org" | "platform" = keySource;
     let actualProvider: ScrapingProvider = provider;
@@ -313,6 +316,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
             industry: rawCompanyInfo.industry,
             website: url,
             rawMarkdown,
+            resolvedUrl: scrapeResponse.resolvedUrl ?? null,
             createdAt: new Date(),
           },
           rawHtml
@@ -342,6 +346,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         website: url,
         rawMarkdown: sanitizedMarkdown,
         rawMetadata: scrapeResponse.metadata as any,
+        resolvedUrl: scrapeResponse.resolvedUrl ?? null,
         expiresAt,
       })
       .onConflictDoUpdate({
@@ -355,6 +360,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
           website: url,
           rawMarkdown: sanitizedMarkdown,
           rawMetadata: scrapeResponse.metadata as any,
+          resolvedUrl: scrapeResponse.resolvedUrl ?? null,
           expiresAt,
           updatedAt: new Date(),
         },
@@ -554,6 +560,7 @@ function formatResult(result: any, rawHtml: string | null = null) {
     products: result.products ?? null,
     services: result.services ?? null,
     rawMarkdown: result.rawMarkdown ?? null,
+    resolvedUrl: result.resolvedUrl ?? null,
     rawHtml,
     createdAt: result.createdAt,
   };

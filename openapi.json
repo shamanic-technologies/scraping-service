@@ -154,6 +154,11 @@
             "type": "string",
             "nullable": true
           },
+          "resolvedUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "The URL the page was actually served from, after redirects. Differs from `url` when the site redirects (e.g. a domain forwarded to another company's site): a caller that attributes the content to `url`'s owner should check it. Null only when the provider did not report it."
+          },
           "rawHtml": {
             "type": "string",
             "nullable": true,
@@ -186,6 +191,7 @@
           "linkedinUrl",
           "twitterUrl",
           "rawMarkdown",
+          "resolvedUrl",
           "rawHtml",
           "createdAt"
         ]

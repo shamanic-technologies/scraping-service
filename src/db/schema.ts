@@ -95,6 +95,8 @@ export const scrapeResults = pgTable(
     // Raw content
     rawMarkdown: text("raw_markdown"), // Full page content in markdown
     rawMetadata: jsonb("raw_metadata"), // Title, meta tags, etc.
+    // URL the page was served from after redirects (null on rows scraped before it was recorded)
+    resolvedUrl: text("resolved_url"),
 
     // Firecrawl response info
     firecrawlJobId: text("firecrawl_job_id"),
