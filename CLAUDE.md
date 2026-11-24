@@ -38,6 +38,10 @@ Every dollar of our runs since inception ($271.16, 135k runs, first spend 2026-0
 
 `src/lib/backlinks.ts` (doors), `treg-meter.ts` (treg spend held/actualized on the CALLER's run, no child run: the script's Units and cents sit on one run), `backlink-provider.ts` (DataForSEO via treg), `link-verify.ts` (free direct fetch of the referring page). Kept link = `brand_backlinks` row, unique (org, brand, referring domain); its id is the `backlink_earned` subject. "New" is domain-level (referring-domain `first_seen` inside the brand's window, set by its FIRST check). A Unit not declared stays `declared_run_id IS NULL`; the next check declares it. Link gap declares nothing.
 
+### Provider reads (ENGINE-GET-ASK-1123)
+
+A Script finds a read by OpenAPI tag `provider:<outcome>`; tags + operationIds are a contract, never rename. `GET /orgs/page-reads` (`listPageReadUnits`, `page_read`: completed `scrape_requests` rows), `GET /orgs/company-research` (`listCompanyResearchedUnits`, `company_researched`: rows whose caller stated `outcomeKey`, stored in `scrape_requests.outcome_key` since migration 0011, which backfilled the 5,884 sales rows the ledger backfill declared), `GET /orgs/backlinks` (`listBacklinkEarnedUnits`). Org-scoped, read only, empty list never 404. Kept: the request row forever; page content in `scrape_results` 7 days, one row per normalized URL shared across orgs. `POST /scrape` `maxAgeDays` (0-7) narrows the 7-day reuse; absent = unchanged. SQL url keys (`companyDomainSql`, `pageKeySql`) twin the JS ones: change both (`tests/fixtures/url-keys.ts`).
+
 ### Migrations
 
 `drizzle/` holds the migrations; boot `migrate()` applies them (10 recorded in prod `drizzle.__drizzle_migrations`, 2026-11-09; an older note here said the folder was empty: wrong). A schema change = an idempotent `drizzle/<n>_*.sql` (`IF NOT EXISTS`) + a `_journal.json` entry whose `when` is later than the last one.

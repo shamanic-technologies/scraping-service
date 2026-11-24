@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-import { BacklinkCheckRequestSchema, LinkGapRequestSchema } from "../schemas.js";
+import { BacklinkCheckRequestSchema, BacklinkListQuerySchema, LinkGapRequestSchema } from "../schemas.js";
+import { splitList } from "../lib/provider-reads.js";
 import { BacklinkError, type MeterIdentity } from "../lib/treg-meter.js";
 import { runBacklinkCheck, runLinkGap, wireLink, type Deps } from "../lib/backlinks.js";
 import { brandSiteDomain, siteDomainOf } from "../lib/brand-client.js";
@@ -63,7 +64,24 @@ export function buildBacklinkRouter(deps: Deps): Router {
   router.get("/orgs/backlinks", async (req: AuthenticatedRequest, res) => {
     try {
       const { identity, brandId } = identityOf(req);
-      const rows = await deps.store.listKept(identity.orgId, brandId);
+      let rows = await deps.store.listKept(identity.orgId, brandId);
+      // Optional filters (ENGINE-GET-ASK-1123). None stated = every kept link, as before.
+      // In memory: a brand holds a few hundred links at most; the store's order is kept.
+      if (req.query.since !== undefined || req.query.ids !== undefined || req.query.declared !== undefined) {
+        const parsed = BacklinkListQuerySchema.safeParse(req.query);
+        if (!parsed.success) return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+        const { since, ids, declared } = parsed.data;
+        if (since !== undefined) {
+          const at = new Date(since).getTime();
+          rows = rows.filter((r) => r.verifiedAt.getTime() >= at);
+        }
+        if (ids !== undefined) {
+          const wanted = splitList(ids).map((i) => i.toLowerCase());
+          if (wanted.length < 1 || wanted.length > 100) return res.status(400).json({ error: "Invalid request", message: "ids takes 1 to 100 link ids" });
+          rows = rows.filter((r) => wanted.includes(r.id.toLowerCase()));
+        }
+        if (declared !== undefined) rows = rows.filter((r) => (r.declaredRunId !== null) === (declared === "true"));
+      }
       return res.json({ brandId, count: rows.length, links: rows.map(wireLink) });
     } catch (err) {
       return fail(res, err, "backlink list");

@@ -39,7 +39,9 @@ export const scrapeRequests = pgTable(
     featureSlug: text("feature_slug"),
     audienceId: text("audience_id"), // cost attribution per audience
 
-
+    // The outcome the caller said this read is FOR (`outcomeKey` on POST /scrape), e.g.
+    // 'company_researched'. Null = nothing stated. Read by GET /orgs/company-research.
+    outcomeKey: text("outcome_key"),
 
     // Status tracking
     status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
@@ -54,6 +56,7 @@ export const scrapeRequests = pgTable(
     index("idx_scrape_requests_url").on(table.url),
     index("idx_scrape_requests_status").on(table.status),
     index("idx_scrape_requests_brand_ids").using("gin", table.brandIds),
+    index("idx_scrape_requests_org_created").on(table.orgId, table.createdAt.desc()),
   ]
 );
 

@@ -30,6 +30,10 @@ const ErrorResponseSchema = z
   })
   .openapi("ErrorResponse");
 
+// Query-string list: comma-separated, the parameter repeated, or both.
+const listParam = z.union([z.string(), z.array(z.string())]);
+const sinceParam = z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "must be an ISO 8601 date-time" });
+
 // --- Scrape schemas ---
 
 const ScrapeOptionsSchema = z
@@ -52,6 +56,18 @@ export const ScrapeRequestSchema = z
     sourceService: z.string().optional(),
     sourceRefId: z.string().optional(),
     skipCache: z.boolean().optional().default(false),
+    // The reuse window (ENGINE-GET-ASK-1123). Absent = unchanged behaviour.
+    maxAgeDays: z
+      .number()
+      .int()
+      .min(0)
+      .max(7)
+      .optional()
+      .openapi({
+        description:
+          "How old a stored read of this page may be for the call to reuse it instead of reading the page again, in days (whole number, 0 to 7), counted from when that stored content was read. A stored read no older than this is returned free (`cached: true`, whichever org read it); an older one is ignored and the page is read fresh. 0 = always read fresh (same as skipCache: true). Absent = any stored read still kept, i.e. up to 7 days old. Above 7 is refused (400): we keep page content 7 days, nothing older exists. GET /orgs/page-reads lists what is stored and how old it is.",
+        example: 2,
+      }),
     // Company-info enrichment toggle. Omitted ⇒ enrich on (current behavior).
     // `false` returns the raw page body cheaply without the company-info step
     // and bypasses the shared company-info cache/result store.
@@ -640,14 +656,35 @@ registry.registerPath({
   },
 });
 
+export const BacklinkListQuerySchema = z
+  .object({
+    since: sinceParam.optional().openapi({
+      format: "date-time",
+      description: "Only links verified live at or after this moment (ISO 8601, compared to `verifiedAt`). Absent = every kept link.",
+      example: "2026-11-01T00:00:00Z",
+    }),
+    ids: listParam.optional().openapi({
+      description: "Only these links, by link id (= the Unit's subjectId). 1 to 100 ids, comma-separated or the parameter repeated. An id the brand does not hold is simply absent from the answer.",
+      example: "5b1f0c1e-7a57-4a55-9d0a-0d1d2f3a4b5c",
+    }),
+    declared: z.enum(["true", "false"]).optional().openapi({
+      description: '"true" = only links whose backlink_earned Unit is declared on a run (`unitDeclared: true`); "false" = only links kept but not declared yet (the brand\'s next check declares them). Absent = both.',
+    }),
+  })
+  .openapi("BacklinkListQuery");
+
 registry.registerPath({
   method: "get",
   path: "/orgs/backlinks",
-  summary: "Read back the brand's kept links (x-brand-id)",
-  description: `${BACKLINK_IDENTITY_NOTE} No spend.`,
+  operationId: "listBacklinkEarnedUnits",
+  tags: ["provider:backlink_earned"],
+  summary: "Provider read of backlink_earned: the brand's kept links (x-brand-id), one Unit each",
+  description:
+    `${BACKLINK_IDENTITY_NOTE} No spend, no run opened, nothing made: it lists what we already hold. One Unit per kept link (a link from another domain to the brand's site that we fetched and found live; one referring domain = one link per org x brand, ever). Unit subject = {subjectService: "scraping-service", subjectId: <link id>}. When it was made: \`verifiedAt\`. What made it: \`declaredRunId\`, the run its Unit was declared on (null with \`unitDeclared: false\` = kept but not declared yet; the brand's next check declares it). The brand is the x-brand-id header (exactly one), the org is x-org-id: a link of another org or brand is never returned. No kept link = 200 with \`links: []\` and \`count: 0\`, never 404. Without query filters the answer is every kept link of the brand, oldest first.`,
   security: [{ apiKey: [] }],
+  request: { query: BacklinkListQuerySchema },
   responses: {
-    200: { description: "Kept links, oldest first", content: { "application/json": { schema: BacklinkListResponseSchema } } },
+    200: { description: "Kept links, oldest first (empty list when the brand holds none)", content: { "application/json": { schema: BacklinkListResponseSchema } } },
     400: backlinkErrors[400],
   },
 });
@@ -662,5 +699,160 @@ registry.registerPath({
   responses: {
     200: { description: "Link-gap sources", content: { "application/json": { schema: LinkGapResponseSchema } } },
     ...backlinkErrors,
+  },
+});
+
+// --- Provider reads (ENGINE-GET-ASK-1123) ---
+// A Script finds these by tag `provider:<outcomeKey>`; operationIds and tags are a contract, never rename them.
+
+const PROVIDER_READ_IDENTITY_NOTE =
+  "Called AS the caller's run: headers x-api-key, x-org-id, x-user-id, x-run-id. Lists only what the calling org (x-org-id) holds; another org's Units are never returned. Never spends, never opens a run, never reads a page: it lists what we already hold. Nothing held = 200 with `units: []`, never 404.";
+
+const limitParam = z.coerce.number().int().min(1).max(200);
+const beforeParam = z.string().min(1);
+
+const ReadContentSchema = z
+  .object({
+    held: z.boolean().openapi({ description: "true = the page content of THIS read is still stored. false = it is gone (deleted after 7 days, or replaced by a later read of the same page, by any org) or was never stored (raw-fetch reads: enrich:false or rawHtml)." }),
+    resultId: z.string().uuid().nullable().openapi({ description: "Id of the stored content (GET /scrape/{id} returns it), null when not held." }),
+    expiresAt: z.string().nullable().openapi({ description: "When the stored content is deleted (7 days after it was read), null when not held." }),
+  })
+  .openapi("ReadContent");
+
+const PageReadContentSchema = ReadContentSchema.extend({
+  markdown: z.string().nullable().optional().openapi({ description: "The page as markdown. Only with includeContent=true and held." }),
+  title: z.string().nullable().optional().openapi({ description: "The page title (or its og:title). Only with includeContent=true and held." }),
+  resolvedUrl: z.string().nullable().optional().openapi({ description: "The URL the page was served from after redirects. Only with includeContent=true and held." }),
+}).openapi("PageReadContent");
+
+export const PageReadsQuerySchema = z
+  .object({
+    urls: listParam.optional().openapi({
+      description:
+        "Only reads of these pages. 1 to 50 full URLs (with scheme), comma-separated or the parameter repeated. A read matches when its URL names the same page: same host and same path, ignoring the scheme (http/https), a leading www., the port, the query string, the fragment, one trailing slash and letter case. So https://www.Acme.com/pricing/?utm=x matches a read of http://acme.com/pricing, and does not match acme.com/pricing/eu or blog.acme.com/pricing.",
+      example: "https://acme.com/pricing,https://acme.com/about",
+    }),
+    domain: z.string().optional().openapi({
+      description: "Only reads of this site: a domain such as acme.com. Matches pages on that host and on its subdomains (blog.acme.com); a leading www. is ignored on both sides. A scheme or path in the value is ignored.",
+      example: "acme.com",
+    }),
+    since: sinceParam.optional().openapi({
+      format: "date-time",
+      description: "Only pages read at or after this moment (ISO 8601, compared to `readAt`).",
+      example: "2026-11-17T00:00:00Z",
+    }),
+    limit: limitParam.optional().openapi({
+      description: "Units per page, 1 to 200. Default 50. With includeContent=true: at most 20, default 20.",
+      example: 50,
+    }),
+    before: beforeParam.optional().openapi({
+      description: "Next page: pass the previous answer's `nextBefore` unchanged, with the same filters. Returns the Units older than that page.",
+    }),
+    includeContent: z.enum(["true", "false"]).optional().openapi({
+      description: '"true" = each Unit whose content is still held also carries the page itself (`content.markdown`, `content.title`, `content.resolvedUrl`). Default "false". With "true", limit is at most 20 (a larger limit is refused, 400).',
+    }),
+  })
+  .openapi("PageReadsQuery");
+
+const PageReadUnitSchema = z
+  .object({
+    id: z.string().uuid().openapi({ description: "The read's id (the `requestId` POST /scrape answered)." }),
+    url: z.string().openapi({ description: "The URL that was asked for." }),
+    domain: z.string().nullable().openapi({ description: "The site's domain: lowercased, no scheme, www., path or port. Null when the URL names none." }),
+    readAt: z.string().openapi({ description: "When the page was read (ISO 8601)." }),
+    ageDays: z.number().openapi({ description: "How long ago the page was read, in days, one decimal." }),
+    runId: z.string().nullable().openapi({ description: "The read's own run in runs-service (child of the caller's run); its cost sits there. Null when the run could not be opened." }),
+    provider: z.string().openapi({ description: "What read the page: scrape-do or firecrawl." }),
+    outcomeKey: z.string().nullable().openapi({ description: 'What the caller said the read was FOR (`outcomeKey` on POST /scrape), e.g. "company_researched". Null = the caller stated nothing (e.g. reading a client\'s own site).' }),
+    brandIds: z.array(z.string()).openapi({ description: "Brands the read was made for (empty when none was stated)." }),
+    campaignId: z.string().nullable(),
+    content: PageReadContentSchema,
+  })
+  .openapi("PageReadUnit");
+
+const pageInfo = {
+  nextBefore: z.string().nullable().openapi({ description: "Cursor of the next (older) page: pass it as `before`. Null on the last page." }),
+  hasMore: z.boolean().openapi({ description: "true = older Units exist beyond this page." }),
+};
+
+export const PageReadListResponseSchema = z
+  .object({ units: z.array(PageReadUnitSchema).openapi({ description: "Newest read first. Empty when the org holds none." }), ...pageInfo })
+  .openapi("PageReadListResponse");
+
+export const CompanyResearchQuerySchema = z
+  .object({
+    domains: listParam.optional().openapi({
+      description: "Only these companies, by Unit subject id = the company's domain (acme.com). 1 to 100, comma-separated or the parameter repeated. Each value is normalized like the subject id (lowercased, scheme, www., path and port dropped), so https://www.Acme.com/about asks for acme.com. Exact domain: acme.com does not return blog.acme.com.",
+      example: "acme.com,globex.io",
+    }),
+    brandId: z.string().min(1).optional().openapi({ description: "Only research made for this brand (the scrape carried it in x-brand-id or brandIds)." }),
+    campaignId: z.string().min(1).optional().openapi({ description: "Only research made under this campaign." }),
+    since: sinceParam.optional().openapi({
+      format: "date-time",
+      description: "Only companies researched at or after this moment (ISO 8601, compared to `researchedAt`).",
+      example: "2026-11-17T00:00:00Z",
+    }),
+    limit: limitParam.optional().openapi({ description: "Units per page, 1 to 200. Default 50.", example: 50 }),
+    before: beforeParam.optional().openapi({
+      description: "Next page: pass the previous answer's `nextBefore` unchanged, with the same filters. Returns the Units older than that page.",
+    }),
+  })
+  .openapi("CompanyResearchQuery");
+
+const CompanyResearchedUnitSchema = z
+  .object({
+    id: z.string().uuid().openapi({ description: "The read's id (the `requestId` POST /scrape answered)." }),
+    subject: z
+      .object({ subjectService: z.literal("lead-service"), subjectId: z.string().openapi({ description: "The company's domain, as lead-service keys it.", example: "acme.com" }) })
+      .openapi({ description: "The Unit's subject on the ledger." }),
+    url: z.string().openapi({ description: "The page of the company's site that was read." }),
+    researchedAt: z.string().openapi({ description: "When the site was read (ISO 8601)." }),
+    ageDays: z.number().openapi({ description: "How long ago, in days, one decimal." }),
+    runId: z.string().openapi({ description: "The run that made and declared this Unit (the scrape's own run, child of the caller's run)." }),
+    brandIds: z.array(z.string()),
+    campaignId: z.string().nullable(),
+    workflowSlug: z.string().nullable(),
+    content: ReadContentSchema,
+  })
+  .openapi("CompanyResearchedUnit");
+
+export const CompanyResearchListResponseSchema = z
+  .object({ units: z.array(CompanyResearchedUnitSchema).openapi({ description: "Newest first. Empty when the org holds none." }), ...pageInfo })
+  .openapi("CompanyResearchListResponse");
+
+const readErrors = {
+  400: { description: "Invalid query (a filter value, limit or cursor we cannot read)", content: { "application/json": { schema: ErrorResponseSchema } } },
+  401: { description: "Unauthorized" },
+};
+
+registry.registerPath({
+  method: "get",
+  path: "/orgs/page-reads",
+  operationId: "listPageReadUnits",
+  tags: ["provider:page_read"],
+  summary: "Provider read of page_read: the web pages this org already had read, one Unit each",
+  description:
+    `${PROVIDER_READ_IDENTITY_NOTE} One Unit = one web page read fresh by POST /scrape for this org (a call answered from a stored read made no new read and has no Unit of its own). What we keep of a read: (1) the record of the read, forever: the URL, when, the run, the brands, the campaign, what it was for; (2) the page itself (markdown, metadata, the URL it was served from after redirects) for 7 days, as ONE stored copy per page shared by every org (a later read of the same page, by any org, replaces it), then deleted. \`content.held\` says whether this read's copy is still there. POST /scrape reuses a stored copy up to 7 days old instead of reading the page again: free, \`cached: true\`, whichever org read it. To get a fresher page, call POST /scrape with \`maxAgeDays\` (the oldest stored copy you accept, 0 to 7; 0 = always read fresh). Records start 2026-04-14.`,
+  security: [{ apiKey: [] }],
+  request: { query: PageReadsQuerySchema },
+  responses: {
+    200: { description: "The org's page reads, newest first (empty list when none)", content: { "application/json": { schema: PageReadListResponseSchema } } },
+    ...readErrors,
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/orgs/company-research",
+  operationId: "listCompanyResearchedUnits",
+  tags: ["provider:company_researched"],
+  summary: "Provider read of company_researched: the prospect companies whose site this org already had read, one Unit each",
+  description:
+    `${PROVIDER_READ_IDENTITY_NOTE} One Unit = one read of a prospect company's website, made by a POST /scrape whose caller stated \`outcomeKey: "company_researched"\`. The scrape's own run declared it to runs-service with subject {subjectService: "lead-service", subjectId: <the company's domain>}; \`runId\` is that run. A POST /scrape answered from a stored read (\`cached: true\`) makes no Unit: nothing was spent, nothing was declared. The same company can have several Units (one per fresh read). \`content.held\` says whether the page read is still stored (7 days, see GET /orgs/page-reads, which returns the page itself with includeContent=true). History: sales scrapes since 2026-04-14 are included; 4 scrapes of February 2026 predate our records and are not listed.`,
+  security: [{ apiKey: [] }],
+  request: { query: CompanyResearchQuerySchema },
+  responses: {
+    200: { description: "The org's company_researched Units, newest first (empty list when none)", content: { "application/json": { schema: CompanyResearchListResponseSchema } } },
+    ...readErrors,
   },
 });

@@ -30,7 +30,9 @@ Optional tracking headers (injected automatically by workflow-service):
 | `POST` | `/map` | Discover all URLs on a website |
 | `POST` | `/extract` | Extract article metadata (authors, date) via LLM |
 | `POST` | `/orgs/backlinks/checks` | Check the brand's backlinks: keep new live links, one `backlink_earned` Unit each on the caller's run |
-| `GET` | `/orgs/backlinks` | Read back the brand's kept links |
+| `GET` | `/orgs/backlinks` | Provider read of `backlink_earned` (`listBacklinkEarnedUnits`): the brand's kept links; optional `since`, `ids`, `declared` |
+| `GET` | `/orgs/page-reads` | Provider read of `page_read` (`listPageReadUnits`): the org's fresh page reads; `urls`, `domain`, `since`, `limit`, `before`, `includeContent` |
+| `GET` | `/orgs/company-research` | Provider read of `company_researched` (`listCompanyResearchedUnits`): `domains`, `brandId`, `campaignId`, `since`, `limit`, `before` |
 | `POST` | `/orgs/backlinks/link-gaps` | Domains linking to several competitors but not to the brand (no Unit) |
 
 ### Backlinks (BACKLINK-ENGINE-1109)
@@ -52,6 +54,22 @@ POST /orgs/backlinks/link-gaps
 { "idempotencyKey": "2026-11-09", "competitors": ["belkins.io", "martal.ca", "gojiberry.ai"], "minCompetitors": 2, "minDomainRank": 200, "maxSpamScore": 5 }
 ```
 Answer `sources[]` (`domain`, `domainRank`, `spamScore`, `competitorCount`, `competitors`), most competitors then highest rank first. Idempotent per key + sorted competitor set. Declares no Unit.
+
+### Provider reads (ENGINE-GET-ASK-1123)
+
+Found by a Script through the OpenAPI tag `provider:<outcome>`. Org-scoped (`x-org-id`), never spend, `200 {units: [], ...}` when nothing is held.
+
+```
+GET /orgs/page-reads?domain=acme.com&since=2026-11-01T00:00:00Z&limit=20
+-> { "units": [{ "id", "url", "domain", "readAt", "ageDays", "runId", "provider", "outcomeKey",
+     "brandIds", "campaignId", "content": { "held", "resultId", "expiresAt" } }],
+     "nextBefore": "<cursor>|null", "hasMore": false }
+GET /orgs/company-research?domains=acme.com
+-> { "units": [{ "id", "subject": { "subjectService": "lead-service", "subjectId": "acme.com" },
+     "url", "researchedAt", "ageDays", "runId", "brandIds", "campaignId", "workflowSlug", "content" }], ... }
+```
+
+`POST /scrape` takes `maxAgeDays` (0-7): the oldest stored read it may reuse; 0 = read fresh; absent = up to 7 days (unchanged).
 
 ### POST /scrape
 
