@@ -11,6 +11,7 @@ import mapRoutes from "./routes/map.js";
 import extractRoutes from "./routes/extract.js";
 import transferBrandRoutes from "./routes/transfer-brand.js";
 import backlinkRoutes from "./routes/backlinks.js";
+import providerReadRoutes from "./routes/provider-reads.js";
 import { serviceAuth } from "./middleware/auth.js";
 import { db } from "./db/index.js";
 import { startScrapeResultsRetention } from "./lib/scrape-results-retention.js";
@@ -50,6 +51,7 @@ app.use(mapRoutes);
 app.use(extractRoutes);
 app.use(transferBrandRoutes);
 app.use(backlinkRoutes);
+app.use(providerReadRoutes);
 
 // 404 handler
 app.use((req, res) => {

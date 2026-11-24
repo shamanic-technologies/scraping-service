@@ -335,6 +335,24 @@ describe("GET /orgs/backlinks", () => {
     expect(res.body.count).toBe(2);
     expect(res.body.links[0]).toMatchObject({ referringDomain: "goalsetting.co", referringUrl: "https://goalsetting.co/qa/x", domainRank: 35, unitDeclared: true });
   });
+
+  // ENGINE-GET-ASK-1123: the Provider read of backlink_earned takes optional filters.
+  it("filters by ids, declared and since; none stated = every link; no match = empty, never 404", async () => {
+    const store = memoryStore();
+    await request(app(store, fleet({ referringDomains: RD, backlinks: BL }))).post("/orgs/backlinks/checks").set(H).send(checkBody());
+    const a = app(store, fleet({}));
+    const all = await request(a).get("/orgs/backlinks").set(H);
+    const firstId = all.body.links[0].id;
+
+    const byId = await request(a).get("/orgs/backlinks").query({ ids: firstId }).set(H);
+    expect(byId.body.links.map((l: any) => l.id)).toEqual([firstId]);
+
+    expect((await request(a).get("/orgs/backlinks").query({ declared: "true" }).set(H)).body.count).toBe(2);
+    expect((await request(a).get("/orgs/backlinks").query({ declared: "false" }).set(H)).body).toMatchObject({ count: 0, links: [] });
+    expect((await request(a).get("/orgs/backlinks").query({ since: "2000-01-01T00:00:00Z" }).set(H)).body.count).toBe(2);
+    expect((await request(a).get("/orgs/backlinks").query({ since: "2999-01-01T00:00:00Z" }).set(H)).body).toMatchObject({ count: 0, links: [] });
+    expect((await request(a).get("/orgs/backlinks").query({ since: "nope" }).set(H)).status).toBe(400);
+  });
 });
 
 describe("POST /orgs/backlinks/link-gaps", () => {
