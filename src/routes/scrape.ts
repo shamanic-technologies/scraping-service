@@ -55,6 +55,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
       sourceRefId,
       options,
       skipCache,
+      maxAgeDays,
       enrich,
       render,
       brandIds,
@@ -89,7 +90,9 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
     // Check cache first (unless skipCache is true).
     // Raw-fetch mode always scrapes fresh: rawHtml is not persisted, and we must
     // not serve a markdown-only cached row when raw HTML was requested.
-    if (!skipCache && !rawFetchMode) {
+    // maxAgeDays (ENGINE-GET-ASK-1123): the oldest stored read the caller accepts.
+    // 0 = always read fresh; absent = any stored read still kept (unchanged behaviour).
+    if (!skipCache && maxAgeDays !== 0 && !rawFetchMode) {
       const cached = await db.query.scrapeCache.findFirst({
         where: and(
           eq(scrapeCache.normalizedUrl, normalized),
@@ -111,7 +114,7 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         // A row scraped before the final URL was recorded cannot tell a caller
         // whether the page redirected off-site (a domain forwarded to another
         // company): treat it as a miss so the fresh scrape records it.
-        if (result && !isThinContent(result.rawMarkdown) && result.resolvedUrl) {
+        if (result && !isThinContent(result.rawMarkdown) && result.resolvedUrl && isWithinMaxAge(result.updatedAt, maxAgeDays)) {
           return res.json({
             cached: true,
             result: formatResult(result),
@@ -204,6 +207,8 @@ router.post("/scrape", async (req: AuthenticatedRequest, res) => {
         url,
         provider,
         options: options as any,
+        // What the caller said this read is FOR; GET /orgs/company-research lists by it.
+        outcomeKey,
         status: "processing",
       })
       .returning();
@@ -523,6 +528,19 @@ router.get("/scrape/:id", async (req, res) => {
     res.status(500).json({ error: errorMessage(error, "Internal server error") });
   }
 });
+
+/**
+ * Is a stored read recent enough for the caller? `readAt` = the stored result's
+ * `updatedAt` (when its content was read). No `maxAgeDays` = yes (unchanged behaviour).
+ * A stored read with no date cannot prove its age: not reused when a limit is stated.
+ */
+export function isWithinMaxAge(readAt: Date | string | null | undefined, maxAgeDays: number | undefined, now: Date = new Date()): boolean {
+  if (maxAgeDays === undefined) return true;
+  if (!readAt) return false;
+  const at = new Date(readAt).getTime();
+  if (Number.isNaN(at)) return false;
+  return now.getTime() - at <= maxAgeDays * 24 * 60 * 60 * 1000;
+}
 
 /**
  * Extract company info from scrape response
